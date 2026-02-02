@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
+import { ConnectedAccounts } from "@/components/settings/ConnectedAccounts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -176,6 +177,8 @@ export default function Settings() {
           </div>
 
           <div className="space-y-6">
+            {/* Connected Accounts */}
+            <ConnectedAccounts />
             {/* Reply Preferences */}
             <Card>
               <CardHeader>
