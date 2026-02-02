@@ -18,6 +18,7 @@ export interface Message {
   received_at: string;
   is_demo: boolean;
   processed: boolean;
+  provider_message_id: string | null;
   classification?: {
     category: string;
     confidence: string;
