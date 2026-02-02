@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Message } from "@/pages/Dashboard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { MeetingTimeSelector } from "./MeetingTimeSelector";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { 
   X, 
   Loader2, 
@@ -16,9 +19,25 @@ import {
   Sparkles,
   ChevronDown,
   ChevronUp,
-  Edit3
+  Edit3,
+  CalendarPlus,
+  ExternalLink,
+  AlertTriangle
 } from "lucide-react";
-import { formatDistanceToNow, format } from "date-fns";
+import { formatDistanceToNow, format, parseISO } from "date-fns";
+
+interface TimeSlot {
+  start: string;
+  end: string;
+  date?: string;
+  time?: string;
+  duration?: string;
+  calendarEvent?: {
+    eventId: string;
+    eventLink: string;
+    createdAt: string;
+  };
+}
 
 interface EmailDetailProps {
   message: Message;
@@ -43,19 +62,212 @@ export function EmailDetail({
   onProcess,
   onAction 
 }: EmailDetailProps) {
+  const { toast } = useToast();
   const [showFullEmail, setShowFullEmail] = useState(false);
-  const [editingReply, setEditingReply] = useState(false);
+  const [editingReply, setEditingReply] = useState(true); // Always editable
   const [replyText, setReplyText] = useState(message.proposal?.suggested_reply || "");
   const [submitting, setSubmitting] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [creatingEvent, setCreatingEvent] = useState(false);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<TimeSlot | null>(null);
+  const [calendarEventLink, setCalendarEventLink] = useState<string | null>(null);
+  const [needsReconnect, setNeedsReconnect] = useState(false);
 
   const isProcessing = processingId === message.id;
   const hasProposal = !!message.proposal;
   const entities = message.classification?.extracted_entities || {};
+  const isMeetingRequest = message.classification?.category === "meeting_request";
+  const timeSlots = (message.proposal?.suggested_time_slots || []) as TimeSlot[];
 
-  const handleSendReply = async () => {
-    setSubmitting(true);
-    await onAction(message.id, "reply", replyText);
-    setSubmitting(false);
+  // Filter out calendar event metadata from slots
+  const selectableSlots = timeSlots.filter(slot => !slot.calendarEvent);
+
+  // Update reply text when a time slot is selected
+  const updateReplyWithSelectedTime = useCallback((slot: TimeSlot) => {
+    const originalReply = message.proposal?.suggested_reply || "";
+    
+    // Format the selected time nicely
+    let selectedTimeStr = "";
+    try {
+      if (slot.start) {
+        const startDate = parseISO(slot.start);
+        selectedTimeStr = format(startDate, "EEEE, MMMM d 'at' h:mm a") + " ET";
+      } else if (slot.date && slot.time) {
+        selectedTimeStr = `${slot.date} at ${slot.time} ET`;
+      }
+    } catch {
+      selectedTimeStr = slot.date && slot.time ? `${slot.date} at ${slot.time} ET` : "the selected time";
+    }
+
+    // Generate updated reply that confirms the specific time
+    // Try to keep the same tone by analyzing the original
+    const isFormal = originalReply.includes("Dear") || originalReply.includes("Regards");
+    const isFriendly = originalReply.includes("Hi!") || originalReply.includes("Thanks!");
+    
+    let newReply = "";
+    
+    if (isFormal) {
+      newReply = `Dear ${message.from_name || message.from_email.split("@")[0]},
+
+Thank you for reaching out. I would be happy to meet at ${selectedTimeStr}.
+
+Please let me know if this time works for you, and I will send a calendar invitation.
+
+Best regards`;
+    } else if (isFriendly) {
+      newReply = `Hi ${message.from_name || message.from_email.split("@")[0]}!
+
+Thanks for getting in touch! Let's meet at ${selectedTimeStr}.
+
+Looking forward to it!`;
+    } else {
+      newReply = `Hi ${message.from_name || message.from_email.split("@")[0]},
+
+Thanks for your message. I'm available at ${selectedTimeStr}.
+
+Let me know if that works for you.
+
+Best`;
+    }
+
+    setReplyText(newReply);
+  }, [message]);
+
+  const handleTimeSlotSelect = (slot: TimeSlot) => {
+    setSelectedTimeSlot(slot);
+    updateReplyWithSelectedTime(slot);
+  };
+
+  const handleSendEmail = async () => {
+    setSendingEmail(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-gmail", {
+        body: {
+          messageId: message.id,
+          to: message.from_email,
+          subject: message.subject,
+          body: replyText,
+          threadId: message.provider_message_id,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.needsReconnect) {
+        setNeedsReconnect(true);
+        toast({
+          title: "Reconnection Required",
+          description: "Please reconnect your Google account with send permissions.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      toast({
+        title: "Email Sent!",
+        description: "Your reply has been sent successfully via Gmail.",
+      });
+
+      // Refresh the parent
+      onAction(message.id, "reply", replyText);
+    } catch (error: any) {
+      console.error("Error sending email:", error);
+      toast({
+        title: "Failed to Send",
+        description: error.message || "Could not send email. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const handleCreateCalendarEvent = async () => {
+    if (!selectedTimeSlot) {
+      toast({
+        title: "Select a Time",
+        description: "Please select a meeting time first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCreatingEvent(true);
+    try {
+      // Calculate end time (default 30 min if not specified)
+      let startTime = selectedTimeSlot.start;
+      let endTime = selectedTimeSlot.end;
+
+      if (!startTime || !endTime) {
+        toast({
+          title: "Invalid Time",
+          description: "Could not parse the selected time slot.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const eventTitle = `Meeting: ${message.from_name || message.subject}`;
+      const eventDescription = `Email from: ${message.from_email}\nSubject: ${message.subject}\n\nOriginal message:\n${message.body_snippet || message.body_full || ""}`;
+
+      const { data, error } = await supabase.functions.invoke("create-calendar-event", {
+        body: {
+          messageId: message.id,
+          title: eventTitle,
+          startTime,
+          endTime,
+          description: eventDescription,
+          attendeeEmail: message.from_email,
+          timezone: "America/New_York",
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.needsReconnect) {
+        setNeedsReconnect(true);
+        toast({
+          title: "Reconnection Required",
+          description: "Please reconnect your Google account with calendar permissions.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      setCalendarEventLink(data.eventLink);
+
+      toast({
+        title: "Event Created!",
+        description: "Calendar invitation has been sent to the attendee.",
+      });
+
+      // Optionally update reply to mention calendar invite
+      if (replyText && !replyText.includes("calendar invite")) {
+        setReplyText(prev => prev + "\n\nI've also sent you a calendar invitation for our meeting.");
+      }
+    } catch (error: any) {
+      console.error("Error creating calendar event:", error);
+      toast({
+        title: "Failed to Create Event",
+        description: error.message || "Could not create calendar event. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setCreatingEvent(false);
+    }
+  };
+
+  const handleReconnectGoogle = () => {
+    // Navigate to settings for reconnection
+    window.location.href = "/settings";
   };
 
   const handleArchive = async () => {
@@ -69,6 +281,14 @@ export function EmailDetail({
     await onAction(message.id, "decline");
     setSubmitting(false);
   };
+
+  // Reset state when message changes
+  useEffect(() => {
+    setReplyText(message.proposal?.suggested_reply || "");
+    setSelectedTimeSlot(null);
+    setCalendarEventLink(null);
+    setNeedsReconnect(false);
+  }, [message.id]);
 
   return (
     <div className="flex-1 flex flex-col bg-background">
@@ -111,6 +331,24 @@ export function EmailDetail({
             )}
           </div>
         </div>
+
+        {/* Reconnect warning */}
+        {needsReconnect && (
+          <div className="mb-6 bg-warning/10 border border-warning/30 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-warning" />
+              <div className="flex-1">
+                <p className="font-medium text-foreground">Google Account Needs Reconnection</p>
+                <p className="text-sm text-muted-foreground">
+                  New permissions are required for sending emails and creating calendar events.
+                </p>
+              </div>
+              <Button variant="warning" size="sm" onClick={handleReconnectGoogle}>
+                Reconnect
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* AI Analysis section */}
         {hasProposal ? (
@@ -157,65 +395,57 @@ export function EmailDetail({
               </div>
             )}
 
-            {/* Suggested time slots for meeting requests */}
-            {message.classification?.category === "meeting_request" && 
-             message.proposal.suggested_time_slots?.length > 0 && (
-              <div className="bg-info/5 border border-info/20 rounded-xl p-4">
-                <h4 className="font-medium text-foreground mb-3 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-info" />
-                  Suggested Times
-                </h4>
-                <div className="space-y-2">
-                  {message.proposal.suggested_time_slots.map((slot: any, index: number) => (
-                    <div 
-                      key={index}
-                      className="flex items-center justify-between bg-background rounded-lg px-3 py-2 text-sm"
-                    >
-                      <span>{slot.date} at {slot.time}</span>
-                      <Badge variant="outline" className="text-xs">
-                        {slot.duration || "30 min"}
-                      </Badge>
-                    </div>
-                  ))}
+            {/* Meeting time selector for meeting requests */}
+            {isMeetingRequest && selectableSlots.length > 0 && (
+              <MeetingTimeSelector
+                slots={selectableSlots}
+                selectedSlot={selectedTimeSlot}
+                onSelect={handleTimeSlotSelect}
+                timezone="ET"
+              />
+            )}
+
+            {/* Calendar event link if created */}
+            {calendarEventLink && (
+              <div className="bg-success/10 border border-success/30 rounded-xl p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-success">
+                    <Calendar className="w-4 h-4" />
+                    <span className="font-medium">Calendar Event Created</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => window.open(calendarEventLink, "_blank")}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-1" />
+                    Open Event
+                  </Button>
                 </div>
               </div>
             )}
 
-            {/* Proposed reply */}
+            {/* Editable reply area */}
             {message.proposal.suggested_reply && (
               <div className="bg-card border border-border rounded-xl p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-medium text-foreground flex items-center gap-2">
-                    <Send className="w-4 h-4 text-accent" />
-                    Proposed Reply
+                    <Edit3 className="w-4 h-4 text-accent" />
+                    Reply Draft
+                    {selectedTimeSlot && (
+                      <Badge variant="secondary" className="ml-2">
+                        Time selected
+                      </Badge>
+                    )}
                   </h4>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => {
-                      setEditingReply(!editingReply);
-                      if (!editingReply) {
-                        setReplyText(message.proposal?.suggested_reply || "");
-                      }
-                    }}
-                  >
-                    <Edit3 className="w-4 h-4 mr-1" />
-                    {editingReply ? "Cancel" : "Edit"}
-                  </Button>
                 </div>
                 
-                {editingReply ? (
-                  <Textarea
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    className="min-h-32"
-                    placeholder="Edit your reply..."
-                  />
-                ) : (
-                  <p className="text-muted-foreground whitespace-pre-wrap">
-                    {message.proposal.suggested_reply}
-                  </p>
-                )}
+                <Textarea
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  className="min-h-40 font-mono text-sm"
+                  placeholder="Edit your reply..."
+                />
               </div>
             )}
           </div>
@@ -249,7 +479,7 @@ export function EmailDetail({
           </div>
         )}
 
-        {/* Original email (collapsible) */}
+        {/* Original email (collapsible, collapsed by default) */}
         <div className="mt-6 border-t border-border pt-6">
           <button
             onClick={() => setShowFullEmail(!showFullEmail)}
@@ -273,34 +503,68 @@ export function EmailDetail({
       {hasProposal && (
         <div className="p-6 border-t border-border bg-card">
           <div className="flex items-center gap-3">
+            {/* Primary: Send Email */}
             <Button 
               variant="action" 
               className="flex-1"
-              onClick={handleSendReply}
-              disabled={submitting}
+              onClick={handleSendEmail}
+              disabled={sendingEmail || !replyText.trim() || needsReconnect}
             >
-              {submitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+              {sendingEmail ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Sending...
+                </>
               ) : (
-                <Send className="w-4 h-4" />
+                <>
+                  <Send className="w-4 h-4" />
+                  Send Email
+                </>
               )}
-              Send Reply
             </Button>
+
+            {/* Create Calendar Event (only for meeting requests with selected time) */}
+            {isMeetingRequest && (
+              <Button 
+                variant="secondary"
+                onClick={handleCreateCalendarEvent}
+                disabled={creatingEvent || !selectedTimeSlot || needsReconnect || !!calendarEventLink}
+              >
+                {creatingEvent ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : calendarEventLink ? (
+                  <>
+                    <Calendar className="w-4 h-4" />
+                    Event Created
+                  </>
+                ) : (
+                  <>
+                    <CalendarPlus className="w-4 h-4" />
+                    Create Event
+                  </>
+                )}
+              </Button>
+            )}
+
+            {/* Archive */}
             <Button 
               variant="subtle"
               onClick={handleArchive}
               disabled={submitting}
             >
               <Archive className="w-4 h-4" />
-              Archive
             </Button>
+
+            {/* Decline */}
             <Button 
               variant="ghost"
               onClick={handleDecline}
               disabled={submitting}
             >
               <XCircle className="w-4 h-4" />
-              Decline
             </Button>
           </div>
         </div>
