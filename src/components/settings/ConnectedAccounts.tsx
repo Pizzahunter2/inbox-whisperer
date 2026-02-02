@@ -30,6 +30,20 @@ export function ConnectedAccounts() {
 
   useEffect(() => {
     fetchAccounts();
+
+    // Listen for OAuth success message from popup
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'GOOGLE_OAUTH_SUCCESS') {
+        toast({
+          title: "Connected!",
+          description: "Your Google accounts have been linked successfully.",
+        });
+        fetchAccounts();
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, []);
 
   const fetchAccounts = async () => {

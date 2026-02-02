@@ -107,14 +107,103 @@ serve(async (req) => {
     // Redirect back to the app
     const redirectUrl = stateData.redirectUrl || '/settings';
     
+    // Return a styled success page with proper popup/redirect handling
     return new Response(
-      `<html>
+      `<!DOCTYPE html>
+      <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Connected Successfully</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              min-height: 100vh;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              padding: 20px;
+            }
+            .card {
+              background: white;
+              border-radius: 16px;
+              padding: 48px;
+              text-align: center;
+              box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+              max-width: 400px;
+              width: 100%;
+            }
+            .icon {
+              width: 64px;
+              height: 64px;
+              background: #10b981;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              margin: 0 auto 24px;
+            }
+            .icon svg {
+              width: 32px;
+              height: 32px;
+              color: white;
+            }
+            h1 {
+              color: #1f2937;
+              font-size: 24px;
+              font-weight: 600;
+              margin-bottom: 12px;
+            }
+            p {
+              color: #6b7280;
+              font-size: 16px;
+              line-height: 1.5;
+            }
+            .spinner {
+              margin-top: 24px;
+              width: 24px;
+              height: 24px;
+              border: 3px solid #e5e7eb;
+              border-top-color: #667eea;
+              border-radius: 50%;
+              animation: spin 1s linear infinite;
+              margin-left: auto;
+              margin-right: auto;
+            }
+            @keyframes spin {
+              to { transform: rotate(360deg); }
+            }
+          </style>
+        </head>
         <body>
+          <div class="card">
+            <div class="icon">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <h1>Successfully Connected!</h1>
+            <p>Your Gmail and Calendar accounts have been linked. Redirecting you back to settings...</p>
+            <div class="spinner"></div>
+          </div>
           <script>
-            window.opener?.postMessage({ type: 'GOOGLE_OAUTH_SUCCESS' }, '*');
-            window.location.href = '${redirectUrl}';
+            (function() {
+              const isPopup = window.opener && window.opener !== window;
+              
+              if (isPopup) {
+                // Send message to opener and close popup
+                window.opener.postMessage({ type: 'GOOGLE_OAUTH_SUCCESS' }, '*');
+                setTimeout(() => window.close(), 1500);
+              } else {
+                // Redirect in same window
+                setTimeout(() => {
+                  window.location.href = '${redirectUrl}';
+                }, 1500);
+              }
+            })();
           </script>
-          <p>Connected successfully! Redirecting...</p>
         </body>
       </html>`,
       { headers: { 'Content-Type': 'text/html' } }
