@@ -24,7 +24,7 @@ import {
   ExternalLink,
   AlertTriangle
 } from "lucide-react";
-import { formatDistanceToNow, format, parseISO } from "date-fns";
+import { formatDistanceToNow, format, parseISO, parse, addMinutes, isValid } from "date-fns";
 
 interface TimeSlot {
   start: string;
@@ -212,6 +212,7 @@ Best`;
   };
 
   // Helper to parse legacy time slot format to ISO
+  // Robust parser that handles many date/time format variants
   const parseTimeSlotToISO = (slot: TimeSlot): { startTime: string; endTime: string } | null => {
     // If already has ISO start/end, use them
     if (slot.start && slot.end) {
@@ -221,46 +222,71 @@ Best`;
     // Parse legacy format: { date: "Feb 10, 2026", time: "10:00 AM", duration: "30 min" }
     if (slot.date && slot.time) {
       try {
-        // Parse the date and time
-        const dateTimeStr = `${slot.date} ${slot.time}`;
-        // Try multiple date formats
-        let parsedDate: Date | null = null;
-        
-        // Try "Feb 10, 2026 10:00 AM" format
-        const dateMatch = slot.date.match(/(\w+)\s+(\d+),?\s+(\d{4})/);
-        const timeMatch = slot.time.match(/(\d+):(\d+)\s*(AM|PM)/i);
-        
-        if (dateMatch && timeMatch) {
-          const [, monthName, day, year] = dateMatch;
-          let [, hours, minutes, ampm] = timeMatch;
-          
-          const monthMap: Record<string, number> = {
-            jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2,
-            apr: 3, april: 3, may: 4, jun: 5, june: 5, jul: 6, july: 6,
-            aug: 7, august: 7, sep: 8, september: 8, oct: 9, october: 9,
-            nov: 10, november: 10, dec: 11, december: 11
-          };
-          
-          const month = monthMap[monthName.toLowerCase()];
-          let hour = parseInt(hours, 10);
-          const minute = parseInt(minutes, 10);
-          
-          if (ampm.toUpperCase() === 'PM' && hour !== 12) hour += 12;
-          if (ampm.toUpperCase() === 'AM' && hour === 12) hour = 0;
-          
-          parsedDate = new Date(parseInt(year, 10), month, parseInt(day, 10), hour, minute);
+        // Normalize the date string
+        let normalizedDate = slot.date
+          .replace(/\./g, '')  // "Feb." -> "Feb"
+          .replace(/(\d+)(st|nd|rd|th)/gi, '$1')  // "10th" -> "10"
+          .replace(/,/g, '')  // Remove commas
+          .trim();
+
+        // Normalize the time string
+        let normalizedTime = slot.time
+          .replace(/\./g, '')  // "a.m." -> "am"
+          .replace(/\s+/g, ' ')  // Normalize spaces
+          .replace(/(\d+)\s*(am|pm)/gi, '$1:00 $2')  // "10 AM" or "10AM" -> "10:00 AM"
+          .replace(/(\d+:\d+)\s*(am|pm)/gi, '$1 $2')  // "10:00AM" -> "10:00 AM"
+          .toUpperCase()
+          .trim();
+
+        // If time doesn't have minutes, add :00
+        if (/^\d{1,2}\s+[AP]M$/i.test(normalizedTime)) {
+          normalizedTime = normalizedTime.replace(/^(\d{1,2})\s+([AP]M)$/i, '$1:00 $2');
         }
-        
-        if (!parsedDate || isNaN(parsedDate.getTime())) {
-          // Fallback: try native Date parsing
+
+        const dateTimeStr = `${normalizedDate} ${normalizedTime}`;
+
+        // Date formats to try (from most to least specific)
+        const dateFormats = [
+          "MMM d yyyy h:mm a",
+          "MMM d yyyy h a",
+          "MMMM d yyyy h:mm a",
+          "MMMM d yyyy h a",
+          "MMM dd yyyy h:mm a",
+          "MMM dd yyyy h a",
+          "MMMM dd yyyy h:mm a",
+          "MMMM dd yyyy h a",
+          "d MMM yyyy h:mm a",
+          "d MMMM yyyy h:mm a",
+          "yyyy-MM-dd h:mm a",
+        ];
+
+        let parsedDate: Date | null = null;
+        const referenceDate = new Date();
+
+        for (const fmt of dateFormats) {
+          const attempt = parse(dateTimeStr, fmt, referenceDate);
+          if (isValid(attempt)) {
+            parsedDate = attempt;
+            break;
+          }
+        }
+
+        // Fallback: try native Date parsing
+        if (!parsedDate || !isValid(parsedDate)) {
           parsedDate = new Date(dateTimeStr);
         }
-        
-        if (isNaN(parsedDate.getTime())) {
-          console.error("Could not parse date:", dateTimeStr);
+
+        // Second fallback: try original slot strings without normalization
+        if (!parsedDate || !isValid(parsedDate)) {
+          const originalStr = `${slot.date} ${slot.time}`;
+          parsedDate = new Date(originalStr);
+        }
+
+        if (!parsedDate || !isValid(parsedDate)) {
+          console.debug("Failed to parse time slot:", { date: slot.date, time: slot.time, normalized: dateTimeStr });
           return null;
         }
-        
+
         // Parse duration (default 30 min)
         let durationMinutes = 30;
         if (slot.duration) {
@@ -269,19 +295,19 @@ Best`;
             durationMinutes = parseInt(durationMatch[1], 10);
           }
         }
-        
-        const endDate = new Date(parsedDate.getTime() + durationMinutes * 60 * 1000);
-        
+
+        const endDate = addMinutes(parsedDate, durationMinutes);
+
         return {
           startTime: parsedDate.toISOString(),
           endTime: endDate.toISOString(),
         };
       } catch (e) {
-        console.error("Error parsing time slot:", e);
+        console.debug("Error parsing time slot:", e, { date: slot.date, time: slot.time });
         return null;
       }
     }
-    
+
     return null;
   };
 
