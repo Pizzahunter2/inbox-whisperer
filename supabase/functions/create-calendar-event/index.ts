@@ -103,7 +103,23 @@ serve(async (req) => {
 
     if (!title || !startTime || !endTime) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: title, selectedStart, selectedEnd' }),
+        JSON.stringify({ 
+          error: 'Missing required fields: title, startTime, endTime',
+          details: `Received: title=${!!title}, startTime=${!!startTime}, endTime=${!!endTime}`,
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate that startTime and endTime are valid ISO strings
+    const parsedStart = new Date(startTime);
+    const parsedEnd = new Date(endTime);
+    if (isNaN(parsedStart.getTime()) || isNaN(parsedEnd.getTime())) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid date format for startTime or endTime',
+          details: `startTime="${startTime}", endTime="${endTime}" - must be valid ISO date strings`,
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

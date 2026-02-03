@@ -99,18 +99,21 @@ serve(async (req) => {
 
     const { data: { user }, error: userError } = await userClient.auth.getUser();
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      return new Response(JSON.stringify({ error: "Unauthorized", details: "User authentication failed" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { messageId, threadId, toEmail, subject, replyText } = await req.json();
+    const body = await req.json();
+    const { messageId, toEmail, subject, replyText } = body;
+    // Note: threadId is optional and often not available from provider_message_id
 
     if (!messageId || !toEmail || !subject || !replyText) {
       return new Response(
         JSON.stringify({
           error: "Missing required fields: messageId, toEmail, subject, replyText",
+          details: `Received: messageId=${!!messageId}, toEmail=${!!toEmail}, subject=${!!subject}, replyText=${!!replyText}`,
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
@@ -142,7 +145,7 @@ serve(async (req) => {
 
     const raw = createRfc822Raw(toEmail, subject, replyText);
     const sendPayload: any = { raw };
-    if (threadId) sendPayload.threadId = threadId;
+    // Don't include threadId - it causes issues when provider_message_id is passed instead
 
     const sendResponse = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
       method: "POST",

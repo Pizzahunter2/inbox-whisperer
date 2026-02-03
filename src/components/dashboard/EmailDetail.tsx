@@ -144,20 +144,45 @@ Best`;
       const { data, error } = await supabase.functions.invoke("send-email", {
         body: {
           messageId: message.id,
-          threadId: message.provider_message_id,
+          // Don't pass threadId - provider_message_id is a message ID, not thread ID
           toEmail: message.from_email,
           subject: message.subject,
           replyText,
         },
       });
 
-      if (error) throw error;
+      // Handle non-2xx responses - extract error from response body
+      if (error) {
+        let errorMessage = error.message || "Could not send email";
+        // Try to parse error context for real message
+        try {
+          if (error.context?.body) {
+            const bodyText = typeof error.context.body === 'string' 
+              ? error.context.body 
+              : JSON.stringify(error.context.body);
+            const parsed = JSON.parse(bodyText);
+            if (parsed.error) errorMessage = parsed.error;
+            if (parsed.needsReconnect) {
+              setNeedsReconnect(true);
+              toast({
+                title: "Reconnection Required",
+                description: parsed.error || "Please reconnect your Google account with send permissions.",
+                variant: "destructive",
+              });
+              return;
+            }
+          }
+        } catch {
+          // Ignore parse errors
+        }
+        throw new Error(errorMessage);
+      }
 
       if (data?.needsReconnect) {
         setNeedsReconnect(true);
         toast({
           title: "Reconnection Required",
-          description: "Please reconnect your Google account with send permissions.",
+          description: data.error || "Please reconnect your Google account with send permissions.",
           variant: "destructive",
         });
         return;
@@ -186,6 +211,80 @@ Best`;
     }
   };
 
+  // Helper to parse legacy time slot format to ISO
+  const parseTimeSlotToISO = (slot: TimeSlot): { startTime: string; endTime: string } | null => {
+    // If already has ISO start/end, use them
+    if (slot.start && slot.end) {
+      return { startTime: slot.start, endTime: slot.end };
+    }
+
+    // Parse legacy format: { date: "Feb 10, 2026", time: "10:00 AM", duration: "30 min" }
+    if (slot.date && slot.time) {
+      try {
+        // Parse the date and time
+        const dateTimeStr = `${slot.date} ${slot.time}`;
+        // Try multiple date formats
+        let parsedDate: Date | null = null;
+        
+        // Try "Feb 10, 2026 10:00 AM" format
+        const dateMatch = slot.date.match(/(\w+)\s+(\d+),?\s+(\d{4})/);
+        const timeMatch = slot.time.match(/(\d+):(\d+)\s*(AM|PM)/i);
+        
+        if (dateMatch && timeMatch) {
+          const [, monthName, day, year] = dateMatch;
+          let [, hours, minutes, ampm] = timeMatch;
+          
+          const monthMap: Record<string, number> = {
+            jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2,
+            apr: 3, april: 3, may: 4, jun: 5, june: 5, jul: 6, july: 6,
+            aug: 7, august: 7, sep: 8, september: 8, oct: 9, october: 9,
+            nov: 10, november: 10, dec: 11, december: 11
+          };
+          
+          const month = monthMap[monthName.toLowerCase()];
+          let hour = parseInt(hours, 10);
+          const minute = parseInt(minutes, 10);
+          
+          if (ampm.toUpperCase() === 'PM' && hour !== 12) hour += 12;
+          if (ampm.toUpperCase() === 'AM' && hour === 12) hour = 0;
+          
+          parsedDate = new Date(parseInt(year, 10), month, parseInt(day, 10), hour, minute);
+        }
+        
+        if (!parsedDate || isNaN(parsedDate.getTime())) {
+          // Fallback: try native Date parsing
+          parsedDate = new Date(dateTimeStr);
+        }
+        
+        if (isNaN(parsedDate.getTime())) {
+          console.error("Could not parse date:", dateTimeStr);
+          return null;
+        }
+        
+        // Parse duration (default 30 min)
+        let durationMinutes = 30;
+        if (slot.duration) {
+          const durationMatch = slot.duration.match(/(\d+)/);
+          if (durationMatch) {
+            durationMinutes = parseInt(durationMatch[1], 10);
+          }
+        }
+        
+        const endDate = new Date(parsedDate.getTime() + durationMinutes * 60 * 1000);
+        
+        return {
+          startTime: parsedDate.toISOString(),
+          endTime: endDate.toISOString(),
+        };
+      } catch (e) {
+        console.error("Error parsing time slot:", e);
+        return null;
+      }
+    }
+    
+    return null;
+  };
+
   const handleCreateCalendarEvent = async () => {
     if (!selectedTimeSlot) {
       toast({
@@ -198,18 +297,20 @@ Best`;
 
     setCreatingEvent(true);
     try {
-      // Calculate end time (default 30 min if not specified)
-      let startTime = selectedTimeSlot.start;
-      let endTime = selectedTimeSlot.end;
+      // Parse time slot - handles both ISO and legacy formats
+      const parsedTime = parseTimeSlotToISO(selectedTimeSlot);
 
-      if (!startTime || !endTime) {
+      if (!parsedTime) {
         toast({
           title: "Invalid Time",
-          description: "Could not parse the selected time slot.",
+          description: "Could not parse the selected time slot. Please try a different slot.",
           variant: "destructive",
         });
+        setCreatingEvent(false);
         return;
       }
+
+      const { startTime, endTime } = parsedTime;
 
       const eventTitle = `Meeting: ${message.from_name || message.subject}`;
       const eventDescription = `Email from: ${message.from_email}\nSubject: ${message.subject}\n\nOriginal message:\n${message.body_snippet || message.body_full || ""}`;
@@ -218,20 +319,44 @@ Best`;
         body: {
           messageId: message.id,
           title: eventTitle,
-          selectedStart: startTime,
-          selectedEnd: endTime,
+          startTime,
+          endTime,
           description: eventDescription,
           attendeeEmail: message.from_email,
         },
       });
 
-      if (error) throw error;
+      // Handle non-2xx responses - extract error from response body
+      if (error) {
+        let errorMessage = error.message || "Could not create calendar event";
+        try {
+          if (error.context?.body) {
+            const bodyText = typeof error.context.body === 'string' 
+              ? error.context.body 
+              : JSON.stringify(error.context.body);
+            const parsed = JSON.parse(bodyText);
+            if (parsed.error) errorMessage = parsed.error;
+            if (parsed.needsReconnect) {
+              setNeedsReconnect(true);
+              toast({
+                title: "Reconnection Required",
+                description: parsed.error || "Please reconnect your Google account with calendar permissions.",
+                variant: "destructive",
+              });
+              return;
+            }
+          }
+        } catch {
+          // Ignore parse errors
+        }
+        throw new Error(errorMessage);
+      }
 
       if (data?.needsReconnect) {
         setNeedsReconnect(true);
         toast({
           title: "Reconnection Required",
-          description: "Please reconnect your Google account with calendar permissions.",
+          description: data.error || "Please reconnect your Google account with calendar permissions.",
           variant: "destructive",
         });
         return;
