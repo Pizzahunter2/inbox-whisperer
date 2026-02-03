@@ -50,7 +50,7 @@ async function refreshTokenIfNeeded(
         updated_at: new Date().toISOString(),
       })
       .eq('user_id', userId)
-      .eq('provider', 'google_calendar');
+      .eq('provider', 'gmail');
 
     return tokenData.access_token;
   }
@@ -107,17 +107,17 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Get connected Calendar account
+    // Get connected Gmail account (same tokens work for Calendar with correct scopes)
     const { data: account, error: accountError } = await supabase
       .from('connected_accounts')
       .select('*')
       .eq('user_id', user.id)
-      .eq('provider', 'google_calendar')
+      .eq('provider', 'gmail')
       .single();
 
     if (accountError || !account || account.status !== 'connected') {
       return new Response(
-        JSON.stringify({ error: 'Google Calendar not connected. Please reconnect with updated permissions.' }),
+        JSON.stringify({ error: 'Google account not connected. Please connect your Google account in Settings.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
