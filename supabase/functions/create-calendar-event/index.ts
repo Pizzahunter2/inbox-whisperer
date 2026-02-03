@@ -88,19 +88,22 @@ serve(async (req) => {
       );
     }
 
-    const { 
+    const body = await req.json();
+    const {
       messageId,
-      title, 
-      startTime, 
-      endTime, 
-      description, 
+      title,
+      description,
       attendeeEmail,
-      timezone = 'America/New_York'
-    } = await req.json();
+      timezone = "America/New_York",
+    } = body;
+
+    // Accept both legacy and required param names
+    const startTime = body.startTime ?? body.selectedStart;
+    const endTime = body.endTime ?? body.selectedEnd;
 
     if (!title || !startTime || !endTime) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: title, startTime, endTime' }),
+        JSON.stringify({ error: 'Missing required fields: title, selectedStart, selectedEnd' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

@@ -48,11 +48,10 @@ serve(async (req) => {
     }
 
     // Build the OAuth URL with required scopes
-    // gmail.send for sending emails, calendar (full access) for creating events
     const scopes = [
       'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/gmail.send',
-      'https://www.googleapis.com/auth/calendar',
+      'https://www.googleapis.com/auth/calendar.events',
     ];
 
     // Create state with user ID for callback
