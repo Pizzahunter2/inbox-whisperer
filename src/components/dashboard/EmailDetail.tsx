@@ -141,13 +141,13 @@ Best`;
   const handleSendEmail = async () => {
     setSendingEmail(true);
     try {
-      const { data, error } = await supabase.functions.invoke("send-gmail", {
+      const { data, error } = await supabase.functions.invoke("send-email", {
         body: {
           messageId: message.id,
-          to: message.from_email,
-          subject: message.subject,
-          body: replyText,
           threadId: message.provider_message_id,
+          toEmail: message.from_email,
+          subject: message.subject,
+          replyText,
         },
       });
 
@@ -218,11 +218,10 @@ Best`;
         body: {
           messageId: message.id,
           title: eventTitle,
-          startTime,
-          endTime,
+          selectedStart: startTime,
+          selectedEnd: endTime,
           description: eventDescription,
           attendeeEmail: message.from_email,
-          timezone: "America/New_York",
         },
       });
 
@@ -446,6 +445,54 @@ Best`;
                   className="min-h-40 font-mono text-sm"
                   placeholder="Edit your reply..."
                 />
+
+                <div className="mt-4 pt-4 border-t border-border">
+                  <h5 className="text-sm font-medium text-foreground mb-3">Actions</h5>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Button
+                      variant="action"
+                      className="flex-1"
+                      onClick={handleSendEmail}
+                      disabled={sendingEmail || !replyText.trim() || needsReconnect}
+                    >
+                      {sendingEmail ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" />
+                          Send Email
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      variant="secondary"
+                      className="flex-1"
+                      onClick={handleCreateCalendarEvent}
+                      disabled={creatingEvent || !selectedTimeSlot || needsReconnect || !!calendarEventLink}
+                    >
+                      {creatingEvent ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Creating...
+                        </>
+                      ) : calendarEventLink ? (
+                        <>
+                          <Calendar className="w-4 h-4" />
+                          Event Created
+                        </>
+                      ) : (
+                        <>
+                          <CalendarPlus className="w-4 h-4" />
+                          Create Calendar Event
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -502,69 +549,14 @@ Best`;
       {/* Action bar - always visible at bottom */}
       {hasProposal && (
         <div className="p-6 border-t border-border bg-card shrink-0">
-          <div className="flex items-center gap-3">
-            {/* Primary: Send Email */}
-            <Button 
-              variant="action" 
-              className="flex-1"
-              onClick={handleSendEmail}
-              disabled={sendingEmail || !replyText.trim() || needsReconnect}
-            >
-              {sendingEmail ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4" />
-                  Send Email
-                </>
-              )}
-            </Button>
-
-            {/* Create Calendar Event (only for meeting requests with selected time) */}
-            {isMeetingRequest && (
-              <Button 
-                variant="secondary"
-                onClick={handleCreateCalendarEvent}
-                disabled={creatingEvent || !selectedTimeSlot || needsReconnect || !!calendarEventLink}
-              >
-                {creatingEvent ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Creating...
-                  </>
-                ) : calendarEventLink ? (
-                  <>
-                    <Calendar className="w-4 h-4" />
-                    Event Created
-                  </>
-                ) : (
-                  <>
-                    <CalendarPlus className="w-4 h-4" />
-                    Create Event
-                  </>
-                )}
-              </Button>
-            )}
-
-            {/* Archive */}
-            <Button 
-              variant="subtle"
-              onClick={handleArchive}
-              disabled={submitting}
-            >
+          <div className="flex items-center justify-end gap-3">
+            <Button variant="subtle" onClick={handleArchive} disabled={submitting}>
               <Archive className="w-4 h-4" />
+              Archive
             </Button>
-
-            {/* Decline */}
-            <Button 
-              variant="ghost"
-              onClick={handleDecline}
-              disabled={submitting}
-            >
+            <Button variant="ghost" onClick={handleDecline} disabled={submitting}>
               <XCircle className="w-4 h-4" />
+              Decline
             </Button>
           </div>
         </div>
