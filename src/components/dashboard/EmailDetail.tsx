@@ -291,7 +291,7 @@ Best`;
   }, [message.id]);
 
   return (
-    <div className="flex-1 flex flex-col bg-background">
+    <div className="flex-1 flex flex-col bg-background h-full max-h-full overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-border">
         <div className="flex items-center gap-4">
@@ -313,7 +313,7 @@ Best`;
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-6 min-h-0">
         {/* Subject & metadata */}
         <div className="mb-6">
           <h3 className="text-xl font-semibold text-foreground mb-2">
@@ -499,9 +499,9 @@ Best`;
         </div>
       </div>
 
-      {/* Action bar */}
+      {/* Action bar - always visible at bottom */}
       {hasProposal && (
-        <div className="p-6 border-t border-border bg-card">
+        <div className="p-6 border-t border-border bg-card shrink-0">
           <div className="flex items-center gap-3">
             {/* Primary: Send Email */}
             <Button 
