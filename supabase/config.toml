@@ -2,3 +2,9 @@ project_id = "wgfohmocfqqefhmkzrqt"
 
 [functions.google-oauth-callback]
 verify_jwt = false
+
+[functions.send-gmail]
+verify_jwt = false
+
+[functions.create-calendar-event]
+verify_jwt = false
