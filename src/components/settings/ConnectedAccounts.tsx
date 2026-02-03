@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Mail, Calendar, RefreshCw, Link2, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, Mail, Calendar, RefreshCw, Link2, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 
 interface ConnectedAccount {
@@ -12,6 +12,8 @@ interface ConnectedAccount {
   provider: string;
   status: string | null;
   updated_at: string;
+  token_expires_at: string | null;
+  refresh_token_encrypted: string | null;
 }
 
 interface SuggestedSlot {
@@ -27,11 +29,51 @@ export function ConnectedAccounts() {
   const [syncing, setSyncing] = useState(false);
   const [suggestingTimes, setSuggestingTimes] = useState(false);
   const [suggestedSlots, setSuggestedSlots] = useState<SuggestedSlot[]>([]);
+  const [needsReconnect, setNeedsReconnect] = useState(false);
+
+  const fetchAccounts = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("connected_accounts")
+        .select("*");
+
+      if (error) throw error;
+      setAccounts(data || []);
+
+      // Check if any account needs reconnection (expired without refresh token)
+      const gmailAccount = data?.find((a: ConnectedAccount) => a.provider === "gmail");
+      if (gmailAccount?.token_expires_at) {
+        const expiresAt = new Date(gmailAccount.token_expires_at);
+        const now = new Date();
+        if (expiresAt < now && !gmailAccount.refresh_token_encrypted) {
+          setNeedsReconnect(true);
+        } else {
+          setNeedsReconnect(false);
+        }
+      }
+
+      // Auto-disable demo mode if connected
+      const isConnected = data?.some((a: ConnectedAccount) => a.status === "connected");
+      if (isConnected) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase
+            .from("profiles")
+            .update({ demo_mode: false })
+            .eq("user_id", user.id);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching accounts:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchAccounts();
 
-    // Listen for OAuth success message from popup
+    // Listen for OAuth success message from popup or redirect
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'GOOGLE_OAUTH_SUCCESS') {
         toast({
@@ -44,22 +86,8 @@ export function ConnectedAccounts() {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [fetchAccounts, toast]);
 
-  const fetchAccounts = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("connected_accounts")
-        .select("*");
-
-      if (error) throw error;
-      setAccounts(data || []);
-    } catch (error) {
-      console.error("Error fetching accounts:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleConnect = async () => {
     setConnecting(true);
@@ -188,6 +216,19 @@ export function ConnectedAccounts() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Reconnect Warning */}
+        {needsReconnect && (
+          <div className="flex items-center gap-3 p-4 rounded-lg bg-warning/10 border border-warning/30">
+            <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0" />
+            <div className="flex-1">
+              <p className="font-medium text-foreground">Reconnection Required</p>
+              <p className="text-sm text-muted-foreground">
+                Your Google session has expired. Please reconnect to continue using Gmail and Calendar features.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Gmail Status */}
         <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
           <div className="flex items-center gap-3">

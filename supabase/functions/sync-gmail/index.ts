@@ -117,9 +117,10 @@ serve(async (req) => {
       );
     }
 
-    // Fetch unread messages from Gmail
+    // Fetch unread messages from Gmail - PRIMARY inbox only (exclude promotions, social, updates)
+    const gmailQuery = encodeURIComponent('is:unread category:primary -category:promotions -category:social -category:updates');
     const messagesResponse = await fetch(
-      'https://gmail.googleapis.com/gmail/v1/users/me/messages?q=is:unread&maxResults=10',
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${gmailQuery}&maxResults=10`,
       {
         headers: { Authorization: `Bearer ${accessToken}` },
       }

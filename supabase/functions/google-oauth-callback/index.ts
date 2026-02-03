@@ -104,8 +104,12 @@ serve(async (req) => {
       console.error('Calendar account update error:', calendarError);
     }
 
-    // Redirect back to the app
-    const redirectUrl = stateData.redirectUrl || '/settings';
+    // Redirect back to the app with the full URL
+    // Use the preview URL for Lovable apps or the origin from the redirect URL
+    const baseUrl = stateData.redirectUrl 
+      ? new URL(stateData.redirectUrl).origin 
+      : 'https://id-preview--99e9d33a-16dd-4bb0-80bd-dc1135888b13.lovable.app';
+    const redirectUrl = `${baseUrl}/settings`;
     
     // Return a styled success page with proper popup/redirect handling
     return new Response(
