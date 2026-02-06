@@ -7,7 +7,8 @@ import {
   Settings, 
   LogOut, 
   Plus,
-  Clock
+  Clock,
+  Trash2
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -17,6 +18,7 @@ interface DashboardSidebarProps {
   completedCount: number;
   onSignOut: () => void;
   onAddEmail: () => void;
+  onDeleteOld: () => void;
 }
 
 export function DashboardSidebar({ 
@@ -24,7 +26,8 @@ export function DashboardSidebar({
   pendingCount, 
   completedCount,
   onSignOut,
-  onAddEmail 
+  onAddEmail,
+  onDeleteOld
 }: DashboardSidebarProps) {
   const location = useLocation();
   
@@ -64,7 +67,7 @@ export function DashboardSidebar({
       </div>
 
       {/* Add Email Button */}
-      <div className="p-4">
+      <div className="p-4 space-y-2">
         <Button 
           variant="action" 
           className="w-full justify-start gap-2"
@@ -72,6 +75,14 @@ export function DashboardSidebar({
         >
           <Plus className="w-4 h-4" />
           Add Demo Email
+        </Button>
+        <Button 
+          variant="outline" 
+          className="w-full justify-start gap-2 text-destructive hover:text-destructive"
+          onClick={onDeleteOld}
+        >
+          <Trash2 className="w-4 h-4" />
+          Delete Old Emails
         </Button>
       </div>
 

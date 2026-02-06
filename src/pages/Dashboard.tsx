@@ -6,6 +6,7 @@ import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { EmailQueue } from "@/components/dashboard/EmailQueue";
 import { EmailDetail } from "@/components/dashboard/EmailDetail";
 import { AddEmailModal } from "@/components/dashboard/AddEmailModal";
+import { DeleteOldEmailsModal } from "@/components/dashboard/DeleteOldEmailsModal";
 import { useToast } from "@/hooks/use-toast";
 import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
 
@@ -47,6 +48,7 @@ export default function Dashboard() {
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddEmail, setShowAddEmail] = useState(false);
+  const [showDeleteOld, setShowDeleteOld] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   // Handle realtime inserts - prepend new messages
@@ -226,6 +228,7 @@ export default function Dashboard() {
         completedCount={completedMessages.length}
         onSignOut={handleSignOut}
         onAddEmail={() => setShowAddEmail(true)}
+        onDeleteOld={() => setShowDeleteOld(true)}
       />
       
       <main className="flex-1 flex">
@@ -255,6 +258,14 @@ export default function Dashboard() {
         onClose={() => setShowAddEmail(false)}
         onSuccess={() => {
           setShowAddEmail(false);
+          fetchMessages();
+        }}
+      />
+
+      <DeleteOldEmailsModal
+        open={showDeleteOld}
+        onClose={() => setShowDeleteOld(false)}
+        onSuccess={() => {
           fetchMessages();
         }}
       />

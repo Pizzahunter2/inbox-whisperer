@@ -167,6 +167,7 @@ export default function Settings() {
         completedCount={0}
         onSignOut={handleSignOut}
         onAddEmail={() => navigate("/dashboard")}
+        onDeleteOld={() => navigate("/dashboard")}
       />
       
       <main className="flex-1 overflow-auto">
