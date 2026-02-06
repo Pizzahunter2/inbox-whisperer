@@ -1,6 +1,9 @@
+import { useState } from "react";
 import { Message } from "@/pages/Dashboard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Loader2, 
   Calendar, 
@@ -9,7 +12,8 @@ import {
   Newspaper, 
   HelpCircle,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  RefreshCw
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -20,6 +24,7 @@ interface EmailQueueProps {
   processingId: string | null;
   onSelect: (message: Message) => void;
   onProcess: (messageId: string) => void;
+  onRefresh?: () => void;
 }
 
 const categoryConfig: Record<string, { icon: any; color: string; label: string }> = {
@@ -42,8 +47,52 @@ export function EmailQueue({
   selectedId,
   processingId,
   onSelect,
-  onProcess 
+  onProcess,
+  onRefresh
 }: EmailQueueProps) {
+  const { toast } = useToast();
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSyncGmail = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-gmail");
+      
+      if (error) throw error;
+      
+      if (data?.error) {
+        toast({
+          title: "Sync Issue",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      const imported = data?.imported || 0;
+      const skipped = data?.skipped || 0;
+      
+      toast({
+        title: "Inbox Synced",
+        description: imported > 0 
+          ? `Imported ${imported} new email${imported !== 1 ? 's' : ''}.`
+          : `Inbox up to date (${skipped} already synced).`,
+      });
+      
+      // Refresh the messages list
+      if (onRefresh) onRefresh();
+    } catch (error: any) {
+      console.error("Sync error:", error);
+      toast({
+        title: "Sync Failed",
+        description: error.message || "Could not sync Gmail. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="w-96 border-r border-border p-6 flex items-center justify-center">
@@ -55,14 +104,29 @@ export function EmailQueue({
   if (messages.length === 0) {
     return (
       <div className="w-96 border-r border-border p-6">
-        <h2 className="text-lg font-semibold text-foreground mb-6">Action Queue</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold text-foreground">Action Queue</h2>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleSyncGmail}
+            disabled={syncing}
+          >
+            {syncing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+            Sync
+          </Button>
+        </div>
         <div className="text-center py-12">
           <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
             <Sparkles className="w-8 h-8 text-muted-foreground" />
           </div>
           <h3 className="font-medium text-foreground mb-2">All caught up!</h3>
           <p className="text-sm text-muted-foreground">
-            No emails waiting for review. Add some demo emails to get started.
+            No emails waiting for review. Click Sync to check for new emails.
           </p>
         </div>
       </div>
@@ -72,7 +136,22 @@ export function EmailQueue({
   return (
     <div className="w-96 border-r border-border flex flex-col">
       <div className="p-6 border-b border-border">
-        <h2 className="text-lg font-semibold text-foreground">Action Queue</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-foreground">Action Queue</h2>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleSyncGmail}
+            disabled={syncing}
+          >
+            {syncing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+            Sync
+          </Button>
+        </div>
         <p className="text-sm text-muted-foreground mt-1">
           {messages.length} email{messages.length !== 1 ? "s" : ""} waiting for review
         </p>

@@ -79,7 +79,6 @@ Your task is to:
 3. Determine confidence level: high, medium, or low
 4. Extract key entities like dates, times, deadlines, locations
 5. Generate a professional reply in a ${userTone} tone
-6. If it's a meeting request, suggest 3 time slots within working hours (${workStart} to ${workEnd})
 
 User's signature to include in replies:
 ${userSignature}`;
@@ -104,15 +103,11 @@ Respond ONLY with valid JSON in this exact format:
     "duration": "meeting duration if mentioned"
   },
   "proposed_action": "reply|draft|schedule|archive|mark_done",
-  "suggested_reply": "Professional reply text based on the ${userTone} tone",
-  "suggested_time_slots": [
-    {"date": "Feb 10, 2026", "time": "10:00 AM", "duration": "${meetingDuration} min"},
-    {"date": "Feb 11, 2026", "time": "2:00 PM", "duration": "${meetingDuration} min"},
-    {"date": "Feb 12, 2026", "time": "11:00 AM", "duration": "${meetingDuration} min"}
-  ]
+  "suggested_reply": "Professional reply text based on the ${userTone} tone"
 }
 
-Only include suggested_time_slots if the category is meeting_request.
+IMPORTANT: Do NOT include suggested_time_slots in your response. 
+The reply should acknowledge the meeting request but not propose specific times (we will add real calendar availability separately).
 Ensure the reply is complete, professional, and ready to send.`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -172,8 +167,42 @@ Ensure the reply is complete, professional, and ready to send.`;
         extracted_entities: {},
         proposed_action: "reply",
         suggested_reply: `Thank you for your email. I will review and get back to you.\n\n${userSignature}`,
-        suggested_time_slots: [],
       };
+    }
+
+    // If it's a meeting request, get actual calendar availability
+    let suggestedTimeSlots: any[] = [];
+    if (analysis.category === "meeting_request") {
+      try {
+        // Get user's JWT from the original request to call suggest-meeting-times as them
+        const authHeader = req.headers.get("Authorization");
+        if (authHeader) {
+          const suggestResponse = await fetch(
+            `${supabaseUrl}/functions/v1/suggest-meeting-times`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: authHeader,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ durationMinutes: meetingDuration }),
+            }
+          );
+
+          if (suggestResponse.ok) {
+            const suggestData = await suggestResponse.json();
+            if (suggestData.slots && suggestData.slots.length > 0) {
+              suggestedTimeSlots = suggestData.slots;
+              console.log("Got calendar-based time slots:", suggestedTimeSlots);
+            }
+          } else {
+            console.log("suggest-meeting-times returned non-OK:", await suggestResponse.text());
+          }
+        }
+      } catch (calendarError) {
+        console.error("Failed to get calendar availability:", calendarError);
+        // Continue without calendar slots - user can still reply manually
+      }
     }
 
     // Store classification
@@ -198,7 +227,7 @@ Ensure the reply is complete, professional, and ready to send.`;
         proposed_action: analysis.proposed_action || "reply",
         summary: analysis.summary,
         suggested_reply: analysis.suggested_reply,
-        suggested_time_slots: analysis.category === "meeting_request" ? (analysis.suggested_time_slots || []) : [],
+        suggested_time_slots: suggestedTimeSlots,
       }, { onConflict: "message_id" });
 
     if (propError) {
