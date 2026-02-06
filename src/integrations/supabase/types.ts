@@ -85,6 +85,30 @@ export type Database = {
         }
         Relationships: []
       }
+      gmail_watch_state: {
+        Row: {
+          expiration: string | null
+          gmail_email: string | null
+          history_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          expiration?: string | null
+          gmail_email?: string | null
+          history_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          expiration?: string | null
+          gmail_email?: string | null
+          history_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           body_full: string | null
