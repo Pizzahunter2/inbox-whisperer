@@ -2,18 +2,18 @@ import { useState } from "react";
 import { Message } from "@/pages/Dashboard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Loader2, 
-  Calendar, 
-  AlertCircle, 
-  Info, 
-  Newspaper, 
+import { invokeFunctionWithRetry } from "@/lib/invokeFunctionWithRetry";
+import {
+  Loader2,
+  Calendar,
+  AlertCircle,
+  Info,
+  Newspaper,
   HelpCircle,
   Sparkles,
   ChevronRight,
-  RefreshCw
+  RefreshCw,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -56,10 +56,10 @@ export function EmailQueue({
   const handleSyncGmail = async () => {
     setSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke("sync-gmail");
-      
+      const { data, error } = await invokeFunctionWithRetry("sync-gmail");
+
       if (error) throw error;
-      
+
       if (data?.error) {
         toast({
           title: "Sync Issue",

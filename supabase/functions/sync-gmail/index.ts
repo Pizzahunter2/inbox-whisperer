@@ -2,8 +2,10 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
 };
 
 async function refreshTokenIfNeeded(
@@ -61,7 +63,7 @@ async function refreshTokenIfNeeded(
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
@@ -175,35 +177,36 @@ serve(async (req) => {
       const bodyFull = bodySnippet;
 
       // Upsert message (insert or ignore if exists)
-      const { data: newMessage, error: insertError } = await supabase
+      const { data: newMessage, error: upsertError } = await supabase
         .from('messages')
-        .upsert({
-          user_id: user.id,
-          provider_message_id: msg.id,
-          subject,
-          from_email: fromEmail,
-          from_name: fromName,
-          body_snippet: bodySnippet,
-          body_full: bodyFull,
-          received_at: date ? new Date(date).toISOString() : new Date().toISOString(),
-          is_demo: false,
-          processed: false,
-        }, {
-          onConflict: 'user_id,provider_message_id',
-          ignoreDuplicates: true,
-        })
+        .upsert(
+          {
+            user_id: user.id,
+            provider_message_id: msg.id,
+            subject,
+            from_email: fromEmail,
+            from_name: fromName,
+            body_snippet: bodySnippet,
+            body_full: bodyFull,
+            received_at: date ? new Date(date).toISOString() : new Date().toISOString(),
+            is_demo: false,
+            processed: false,
+          },
+          {
+            onConflict: 'user_id,provider_message_id',
+            ignoreDuplicates: true,
+          }
+        )
         .select()
-        .single();
+        .maybeSingle();
 
-      if (insertError) {
-        // Duplicate - this is expected, just count it
-        if (insertError.code === '23505' || insertError.message?.includes('duplicate')) {
-          skippedDuplicates++;
-        } else {
-          console.error('Insert error for message:', msg.id, insertError);
-        }
+      if (upsertError) {
+        console.error('Upsert error for message:', msg.id, upsertError);
       } else if (newMessage) {
         importedMessages.push(newMessage);
+      } else {
+        // ignoreDuplicates=true yields no returned row when the message already exists
+        skippedDuplicates++;
       }
     }
 
