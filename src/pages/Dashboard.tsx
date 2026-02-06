@@ -222,7 +222,7 @@ export default function Dashboard() {
   const completedMessages = messages.filter(m => m.outcome && m.outcome.status !== "pending");
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="h-screen bg-background flex overflow-hidden">
       <DashboardSidebar 
         user={user}
         pendingCount={pendingMessages.length}
