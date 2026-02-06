@@ -117,10 +117,11 @@ serve(async (req) => {
       );
     }
 
-    // Fetch unread messages from Gmail - PRIMARY inbox only (exclude promotions, social, updates)
-    const gmailQuery = encodeURIComponent('is:unread category:primary -category:promotions -category:social -category:updates');
+    // Fetch recent messages from Gmail - PRIMARY inbox, last 7 days
+    // Using 'newer_than:7d' to get recent emails, not just unread
+    const gmailQuery = encodeURIComponent('category:primary -category:promotions -category:social -category:updates newer_than:7d');
     const messagesResponse = await fetch(
-      `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${gmailQuery}&maxResults=10`,
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${gmailQuery}&maxResults=50`,
       {
         headers: { Authorization: `Bearer ${accessToken}` },
       }
@@ -138,17 +139,11 @@ serve(async (req) => {
 
     const messages = messagesData.messages || [];
     const importedMessages = [];
+    let skippedDuplicates = 0;
 
     for (const msg of messages) {
-      // Check if message already exists
-      const { data: existing } = await supabase
-        .from('messages')
-        .select('id')
-        .eq('provider_message_id', msg.id)
-        .eq('user_id', user.id)
-        .single();
-
-      if (existing) continue;
+      // Use upsert with ON CONFLICT to handle duplicates gracefully
+      // First fetch the message details
 
       // Fetch full message details
       const msgDetailResponse = await fetch(
@@ -179,10 +174,10 @@ serve(async (req) => {
       // Get full body (simplified - just the snippet for now)
       const bodyFull = bodySnippet;
 
-      // Insert message
+      // Upsert message (insert or ignore if exists)
       const { data: newMessage, error: insertError } = await supabase
         .from('messages')
-        .insert({
+        .upsert({
           user_id: user.id,
           provider_message_id: msg.id,
           subject,
@@ -193,11 +188,21 @@ serve(async (req) => {
           received_at: date ? new Date(date).toISOString() : new Date().toISOString(),
           is_demo: false,
           processed: false,
+        }, {
+          onConflict: 'user_id,provider_message_id',
+          ignoreDuplicates: true,
         })
         .select()
         .single();
 
-      if (!insertError && newMessage) {
+      if (insertError) {
+        // Duplicate - this is expected, just count it
+        if (insertError.code === '23505' || insertError.message?.includes('duplicate')) {
+          skippedDuplicates++;
+        } else {
+          console.error('Insert error for message:', msg.id, insertError);
+        }
+      } else if (newMessage) {
         importedMessages.push(newMessage);
       }
     }
@@ -206,6 +211,7 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         imported: importedMessages.length,
+        skipped: skippedDuplicates,
         total: messages.length 
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
