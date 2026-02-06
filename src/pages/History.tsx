@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
+import { DeleteOldEmailsModal } from "@/components/dashboard/DeleteOldEmailsModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -59,6 +60,7 @@ export default function History() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMessage, setSelectedMessage] = useState<HistoryMessage | null>(null);
+  const [showDeleteOld, setShowDeleteOld] = useState(false);
 
   useEffect(() => {
     fetchMessages();
@@ -119,6 +121,7 @@ export default function History() {
         completedCount={messages.length}
         onSignOut={handleSignOut}
         onAddEmail={() => navigate("/dashboard")}
+        onDeleteOld={() => setShowDeleteOld(true)}
       />
       
       <main className="flex-1 flex flex-col">
@@ -269,6 +272,14 @@ export default function History() {
           </div>
         </div>
       )}
+
+      <DeleteOldEmailsModal
+        open={showDeleteOld}
+        onClose={() => setShowDeleteOld(false)}
+        onSuccess={() => {
+          fetchMessages();
+        }}
+      />
     </div>
   );
 }
