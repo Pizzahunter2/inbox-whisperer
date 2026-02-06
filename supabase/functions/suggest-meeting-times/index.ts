@@ -101,6 +101,7 @@ serve(async (req) => {
     const workStart = profile?.working_hours_start || '09:00';
     const workEnd = profile?.working_hours_end || '17:00';
     const minNotice = profile?.meeting_min_notice_hours || 24;
+    const userTimezone = profile?.timezone || 'America/New_York';
 
     // Get connected Calendar account
     const { data: account, error: accountError } = await supabase
@@ -163,26 +164,86 @@ serve(async (req) => {
     const [startHour, startMin] = workStart.split(':').map(Number);
     const [endHour, endMin] = workEnd.split(':').map(Number);
 
+    // Helper to get timezone offset for a given date
+    // This creates a date string in the user's timezone and parses it to get the offset
+    function getDateInTimezone(date: Date, tz: string): Date {
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      });
+      const parts = formatter.formatToParts(date);
+      const get = (type: string) => parts.find(p => p.type === type)?.value || '0';
+      return new Date(
+        parseInt(get('year')),
+        parseInt(get('month')) - 1,
+        parseInt(get('day')),
+        parseInt(get('hour')),
+        parseInt(get('minute')),
+        parseInt(get('second'))
+      );
+    }
+
+    // Helper to create a date at specific time in user's timezone
+    function createTimeInTimezone(baseDate: Date, hour: number, minute: number, tz: string): Date {
+      // Get the date components in user's timezone
+      const tzDate = getDateInTimezone(baseDate, tz);
+      
+      // Create a new date with the desired time in user's timezone
+      const targetLocal = new Date(tzDate.getFullYear(), tzDate.getMonth(), tzDate.getDate(), hour, minute, 0, 0);
+      
+      // Now we need to convert this back to UTC
+      // Get the offset by comparing what time it is in the timezone vs UTC
+      const utcDate = new Date(baseDate.toISOString());
+      const tzDateMs = tzDate.getTime();
+      const utcMs = new Date(utcDate.getFullYear(), utcDate.getMonth(), utcDate.getDate(), utcDate.getHours(), utcDate.getMinutes(), utcDate.getSeconds()).getTime();
+      const offsetMs = tzDateMs - utcMs;
+      
+      // For the target time, we need to subtract the offset to get UTC
+      // Actually, let's use a simpler approach: format and parse
+      const year = tzDate.getFullYear();
+      const month = tzDate.getMonth();
+      const day = tzDate.getDate();
+      
+      // Create the desired local time and then find its UTC equivalent
+      // We'll use the Intl API to help us
+      const isoString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
+      
+      // Parse this as if it's in the user's timezone
+      // We need to figure out the UTC offset for this specific datetime
+      const tempDate = new Date(isoString + 'Z'); // Parse as UTC first
+      const tempTzDate = getDateInTimezone(tempDate, tz);
+      const hourDiff = tempTzDate.getHours() - tempDate.getUTCHours();
+      const minDiff = tempTzDate.getMinutes() - tempDate.getUTCMinutes();
+      const totalOffsetMs = (hourDiff * 60 + minDiff) * 60 * 1000;
+      
+      // The actual UTC time is the local time minus the offset
+      return new Date(new Date(isoString + 'Z').getTime() - totalOffsetMs);
+    }
+
     // Check each day
     for (let dayOffset = 0; dayOffset < 7 && suggestedSlots.length < 3; dayOffset++) {
       const checkDate = new Date(minTime);
       checkDate.setDate(checkDate.getDate() + dayOffset);
       
-      // Skip weekends
-      if (checkDate.getDay() === 0 || checkDate.getDay() === 6) continue;
+      // Skip weekends (check in user's timezone)
+      const tzCheckDate = getDateInTimezone(checkDate, userTimezone);
+      if (tzCheckDate.getDay() === 0 || tzCheckDate.getDay() === 6) continue;
 
-      // Set to start of working hours
-      const dayStart = new Date(checkDate);
-      dayStart.setHours(startHour, startMin, 0, 0);
+      // Set to start of working hours in user's timezone
+      const dayStart = createTimeInTimezone(checkDate, startHour, startMin, userTimezone);
+      const dayEnd = createTimeInTimezone(checkDate, endHour, endMin, userTimezone);
 
-      const dayEnd = new Date(checkDate);
-      dayEnd.setHours(endHour, endMin, 0, 0);
-
-      // Start from minTime if it's today and after working hours start
+      // Start from minTime if it's after working hours start
       let slotStart = dayStart;
-      if (dayOffset === 0 && minTime > dayStart) {
-        // Round up to next 30 min
+      if (minTime > dayStart) {
         slotStart = new Date(minTime);
+        // Round up to next 30 min
         const mins = slotStart.getMinutes();
         if (mins % 30 !== 0) {
           slotStart.setMinutes(mins + (30 - (mins % 30)), 0, 0);
