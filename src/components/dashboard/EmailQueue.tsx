@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { Message } from "@/pages/Dashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import {
   Search,
   Filter,
   X,
+  Square,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -46,6 +47,7 @@ export function EmailQueue({
   const [bulkAnalyzing, setBulkAnalyzing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
+  const stopBulkRef = useRef(false);
 
   const messagesWithTags = useMemo(
     () => messages.map((m) => ({ message: m, tags: deriveTagsForMessage(m) })),
@@ -87,6 +89,10 @@ export function EmailQueue({
     setSearchQuery("");
   };
 
+  const handleStopBulk = useCallback(() => {
+    stopBulkRef.current = true;
+  }, []);
+
   const handleBulkAnalyze = async () => {
     const unanalyzed = messages.filter((m) => !m.classification);
     if (unanalyzed.length === 0) {
@@ -94,9 +100,12 @@ export function EmailQueue({
       return;
     }
     setBulkAnalyzing(true);
+    stopBulkRef.current = false;
     let success = 0;
     let failed = 0;
     for (const msg of unanalyzed) {
+      // Check stop flag before starting next email
+      if (stopBulkRef.current) break;
       try {
         onProcess(msg.id);
         success++;
@@ -105,10 +114,12 @@ export function EmailQueue({
         failed++;
       }
     }
+    const wasStopped = stopBulkRef.current;
     setBulkAnalyzing(false);
+    stopBulkRef.current = false;
     toast({
-      title: "Bulk Analysis Complete",
-      description: `Queued ${success} email${success !== 1 ? "s" : ""} for analysis.${failed > 0 ? ` ${failed} failed.` : ""}`,
+      title: wasStopped ? "Analysis Stopped" : "Bulk Analysis Complete",
+      description: `Analyzed ${success} email${success !== 1 ? "s" : ""}.${failed > 0 ? ` ${failed} failed.` : ""}${wasStopped ? " Remaining emails skipped." : ""}`,
     });
   };
 
@@ -159,6 +170,12 @@ export function EmailQueue({
               {bulkAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
               Analyze All
             </Button>
+            {bulkAnalyzing && (
+              <Button variant="destructive" size="sm" onClick={handleStopBulk}>
+                <Square className="w-3 h-3" />
+                Stop
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={handleSyncGmail} disabled={syncing}>
               {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
               Sync
