@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Mail, Calendar, RefreshCw, Link2, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { Loader2, Mail, Calendar, RefreshCw, Link2, CheckCircle, XCircle, AlertTriangle, Zap } from "lucide-react";
 import { format } from "date-fns";
 
 interface ConnectedAccount {
@@ -21,9 +21,15 @@ interface SuggestedSlot {
   end: string;
 }
 
+interface WatchState {
+  expiration: string | null;
+  gmail_email: string | null;
+}
+
 export function ConnectedAccounts() {
   const { toast } = useToast();
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([]);
+  const [watchState, setWatchState] = useState<WatchState | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -40,6 +46,20 @@ export function ConnectedAccounts() {
       if (error) throw error;
       setAccounts(data || []);
 
+      // Fetch watch state
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: watchData } = await supabase
+          .from("gmail_watch_state")
+          .select("expiration, gmail_email")
+          .eq("user_id", user.id)
+          .single();
+
+        if (watchData) {
+          setWatchState(watchData);
+        }
+      }
+
       // Check if any account needs reconnection (expired without refresh token)
       const gmailAccount = data?.find((a: ConnectedAccount) => a.provider === "gmail");
       if (gmailAccount?.token_expires_at) {
@@ -54,14 +74,11 @@ export function ConnectedAccounts() {
 
       // Auto-disable demo mode if connected
       const isConnected = data?.some((a: ConnectedAccount) => a.status === "connected");
-      if (isConnected) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await supabase
-            .from("profiles")
-            .update({ demo_mode: false })
-            .eq("user_id", user.id);
-        }
+      if (isConnected && user) {
+        await supabase
+          .from("profiles")
+          .update({ demo_mode: false })
+          .eq("user_id", user.id);
       }
     } catch (error) {
       console.error("Error fetching accounts:", error);
@@ -306,6 +323,20 @@ export function ConnectedAccounts() {
         {/* Actions when connected */}
         {isConnected && (
           <div className="space-y-3">
+            {/* Auto-sync status */}
+            {watchState?.expiration && new Date(watchState.expiration) > new Date() && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-accent/50">
+                <Zap className="w-4 h-4 text-primary" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Inbox updates automatically</p>
+                  <p className="text-xs text-muted-foreground">
+                    Synced with {watchState.gmail_email}
+                  </p>
+                </div>
+                <Badge variant="secondary" className="text-xs">Active</Badge>
+              </div>
+            )}
+
             <div className="flex gap-3">
               <Button 
                 variant="outline" 
@@ -321,7 +352,7 @@ export function ConnectedAccounts() {
                 ) : (
                   <>
                     <RefreshCw className="w-4 h-4" />
-                    Sync Inbox
+                    Sync now (fallback)
                   </>
                 )}
               </Button>

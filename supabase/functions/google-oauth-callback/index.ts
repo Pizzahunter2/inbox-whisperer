@@ -1,6 +1,60 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+async function setupGmailWatch(accessToken: string, supabaseUrl: string): Promise<{ historyId: string; expiration: string } | null> {
+  try {
+    const topic = Deno.env.get('GMAIL_PUBSUB_TOPIC');
+    if (!topic) {
+      console.log('GMAIL_PUBSUB_TOPIC not configured, skipping watch setup');
+      return null;
+    }
+
+    const watchResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/watch', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        topicName: topic,
+        labelIds: ['INBOX'],
+        labelFilterBehavior: 'INCLUDE',
+      }),
+    });
+
+    const watchData = await watchResponse.json();
+
+    if (watchData.error) {
+      console.error('Gmail watch error:', watchData.error);
+      return null;
+    }
+
+    console.log('Gmail watch set up:', watchData);
+
+    return {
+      historyId: watchData.historyId,
+      expiration: new Date(parseInt(watchData.expiration)).toISOString(),
+    };
+  } catch (error) {
+    console.error('Failed to set up Gmail watch:', error);
+    return null;
+  }
+}
+
+async function getGmailEmail(accessToken: string): Promise<string | null> {
+  try {
+    const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+
+    const profile = await response.json();
+    return profile.emailAddress || null;
+  } catch (error) {
+    console.error('Failed to get Gmail email:', error);
+    return null;
+  }
+}
+
 serve(async (req) => {
   try {
     const url = new URL(req.url);
@@ -104,8 +158,34 @@ serve(async (req) => {
       console.error('Calendar account update error:', calendarError);
     }
 
+    // Get Gmail email for webhook mapping
+    const gmailEmail = await getGmailEmail(tokenData.access_token);
+
+    // Set up Gmail Watch for push notifications
+    const watchResult = await setupGmailWatch(tokenData.access_token, supabaseUrl);
+
+    if (watchResult && gmailEmail) {
+      // Store watch state
+      const { error: watchError } = await supabase
+        .from('gmail_watch_state')
+        .upsert({
+          user_id: stateData.userId,
+          history_id: watchResult.historyId,
+          expiration: watchResult.expiration,
+          gmail_email: gmailEmail,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id',
+        });
+
+      if (watchError) {
+        console.error('Watch state save error:', watchError);
+      } else {
+        console.log('Gmail watch state saved for', gmailEmail);
+      }
+    }
+
     // Redirect back to the app with the full URL
-    // Use the preview URL for Lovable apps or the origin from the redirect URL
     const baseUrl = stateData.redirectUrl 
       ? new URL(stateData.redirectUrl).origin 
       : 'https://id-preview--99e9d33a-16dd-4bb0-80bd-dc1135888b13.lovable.app';
@@ -189,7 +269,7 @@ serve(async (req) => {
               </svg>
             </div>
             <h1>Successfully Connected!</h1>
-            <p>Your Gmail and Calendar accounts have been linked. Redirecting you back to settings...</p>
+            <p>Your Gmail and Calendar accounts have been linked. Real-time sync is now active. Redirecting you back to settings...</p>
             <div class="spinner"></div>
           </div>
           <script>

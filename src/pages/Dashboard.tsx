@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +7,7 @@ import { EmailQueue } from "@/components/dashboard/EmailQueue";
 import { EmailDetail } from "@/components/dashboard/EmailDetail";
 import { AddEmailModal } from "@/components/dashboard/AddEmailModal";
 import { useToast } from "@/hooks/use-toast";
+import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
 
 export interface Message {
   id: string;
@@ -47,6 +48,37 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [showAddEmail, setShowAddEmail] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+
+  // Handle realtime inserts - prepend new messages
+  const handleRealtimeInsert = useCallback((newMessage: Message) => {
+    setMessages((prev) => {
+      // Avoid duplicates
+      if (prev.some((m) => m.id === newMessage.id)) return prev;
+      return [newMessage, ...prev];
+    });
+    toast({
+      title: "New email",
+      description: `From: ${newMessage.from_name || newMessage.from_email}`,
+    });
+  }, [toast]);
+
+  // Handle realtime updates
+  const handleRealtimeUpdate = useCallback((updatedMessage: Message) => {
+    setMessages((prev) =>
+      prev.map((m) => (m.id === updatedMessage.id ? updatedMessage : m))
+    );
+    // Also update selected message if it's the one that was updated
+    setSelectedMessage((prev) =>
+      prev?.id === updatedMessage.id ? updatedMessage : prev
+    );
+  }, []);
+
+  // Subscribe to realtime messages
+  useRealtimeMessages({
+    userId: user?.id,
+    onInsert: handleRealtimeInsert,
+    onUpdate: handleRealtimeUpdate,
+  });
 
   useEffect(() => {
     fetchMessages();
