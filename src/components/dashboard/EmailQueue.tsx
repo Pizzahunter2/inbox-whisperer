@@ -2,9 +2,6 @@ import { useState } from "react";
 import { Message } from "@/pages/Dashboard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { invokeFunctionWithRetry } from "@/lib/invokeFunctionWithRetry";
 import {
@@ -17,9 +14,8 @@ import {
   Sparkles,
   ChevronRight,
   RefreshCw,
-  CalendarRange,
 } from "lucide-react";
-import { formatDistanceToNow, parseISO, isAfter, isBefore, startOfDay, endOfDay } from "date-fns";
+import { formatDistanceToNow, startOfDay, endOfDay, isAfter, isBefore } from "date-fns";
 
 interface EmailQueueProps {
   messages: Message[];
@@ -57,18 +53,12 @@ export function EmailQueue({
   const { toast } = useToast();
   const [syncing, setSyncing] = useState(false);
   const [bulkAnalyzing, setBulkAnalyzing] = useState(false);
-  const [bulkOpen, setBulkOpen] = useState(false);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+
+
 
   const handleBulkAnalyze = async () => {
-    if (!dateFrom || !dateTo) {
-      toast({ title: "Select Dates", description: "Please select both a start and end date.", variant: "destructive" });
-      return;
-    }
-
-    const from = startOfDay(new Date(dateFrom));
-    const to = endOfDay(new Date(dateTo));
+    const from = startOfDay(new Date());
+    const to = endOfDay(new Date());
 
     const unanalyzed = messages.filter((m) => {
       const received = new Date(m.received_at);
@@ -76,12 +66,11 @@ export function EmailQueue({
     });
 
     if (unanalyzed.length === 0) {
-      toast({ title: "No Emails", description: "No unanalyzed emails found in that date range." });
+      toast({ title: "No Emails", description: "No unanalyzed emails from today." });
       return;
     }
 
     setBulkAnalyzing(true);
-    setBulkOpen(false);
     let success = 0;
     let failed = 0;
 
@@ -89,7 +78,6 @@ export function EmailQueue({
       try {
         onProcess(msg.id);
         success++;
-        // Small delay to avoid overwhelming the backend
         await new Promise((r) => setTimeout(r, 1500));
       } catch {
         failed++;
@@ -189,35 +177,14 @@ export function EmailQueue({
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-foreground">Action Queue</h2>
           <div className="flex items-center gap-2">
-            <Popover open={bulkOpen} onOpenChange={setBulkOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" disabled={bulkAnalyzing}>
-                  {bulkAnalyzing ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <CalendarRange className="w-4 h-4" />
-                  )}
-                  Analyze
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-72" align="end">
-                <div className="space-y-3">
-                  <h4 className="font-medium text-sm">Bulk Analyze by Date Range</h4>
-                  <div className="space-y-2">
-                    <Label className="text-xs">From</Label>
-                    <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">To</Label>
-                    <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-                  </div>
-                  <Button variant="action" size="sm" className="w-full" onClick={handleBulkAnalyze}>
-                    <Sparkles className="w-3 h-3" />
-                    Analyze Emails
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
+            <Button variant="outline" size="sm" disabled={bulkAnalyzing} onClick={handleBulkAnalyze}>
+              {bulkAnalyzing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4" />
+              )}
+              Analyze Today
+            </Button>
             <Button 
               variant="outline" 
               size="sm" 
