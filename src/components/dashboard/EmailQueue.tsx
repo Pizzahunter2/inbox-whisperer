@@ -2,6 +2,9 @@ import { useState } from "react";
 import { Message } from "@/pages/Dashboard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { invokeFunctionWithRetry } from "@/lib/invokeFunctionWithRetry";
 import {
@@ -14,8 +17,9 @@ import {
   Sparkles,
   ChevronRight,
   RefreshCw,
+  CalendarRange,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, parseISO, isAfter, isBefore, startOfDay, endOfDay } from "date-fns";
 
 interface EmailQueueProps {
   messages: Message[];
@@ -52,6 +56,52 @@ export function EmailQueue({
 }: EmailQueueProps) {
   const { toast } = useToast();
   const [syncing, setSyncing] = useState(false);
+  const [bulkAnalyzing, setBulkAnalyzing] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  const handleBulkAnalyze = async () => {
+    if (!dateFrom || !dateTo) {
+      toast({ title: "Select Dates", description: "Please select both a start and end date.", variant: "destructive" });
+      return;
+    }
+
+    const from = startOfDay(new Date(dateFrom));
+    const to = endOfDay(new Date(dateTo));
+
+    const unanalyzed = messages.filter((m) => {
+      const received = new Date(m.received_at);
+      return !m.classification && !isAfter(from, received) && !isBefore(to, received);
+    });
+
+    if (unanalyzed.length === 0) {
+      toast({ title: "No Emails", description: "No unanalyzed emails found in that date range." });
+      return;
+    }
+
+    setBulkAnalyzing(true);
+    setBulkOpen(false);
+    let success = 0;
+    let failed = 0;
+
+    for (const msg of unanalyzed) {
+      try {
+        onProcess(msg.id);
+        success++;
+        // Small delay to avoid overwhelming the backend
+        await new Promise((r) => setTimeout(r, 1500));
+      } catch {
+        failed++;
+      }
+    }
+
+    setBulkAnalyzing(false);
+    toast({
+      title: "Bulk Analysis Complete",
+      description: `Queued ${success} email${success !== 1 ? "s" : ""} for analysis.${failed > 0 ? ` ${failed} failed.` : ""}`,
+    });
+  };
 
   const handleSyncGmail = async () => {
     setSyncing(true);
@@ -138,19 +188,50 @@ export function EmailQueue({
       <div className="p-6 border-b border-border">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-foreground">Action Queue</h2>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleSyncGmail}
-            disabled={syncing}
-          >
-            {syncing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <RefreshCw className="w-4 h-4" />
-            )}
-            Sync
-          </Button>
+          <div className="flex items-center gap-2">
+            <Popover open={bulkOpen} onOpenChange={setBulkOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" disabled={bulkAnalyzing}>
+                  {bulkAnalyzing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CalendarRange className="w-4 h-4" />
+                  )}
+                  Analyze
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72" align="end">
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm">Bulk Analyze by Date Range</h4>
+                  <div className="space-y-2">
+                    <Label className="text-xs">From</Label>
+                    <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">To</Label>
+                    <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                  </div>
+                  <Button variant="action" size="sm" className="w-full" onClick={handleBulkAnalyze}>
+                    <Sparkles className="w-3 h-3" />
+                    Analyze Emails
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleSyncGmail}
+              disabled={syncing}
+            >
+              {syncing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+              Sync
+            </Button>
+          </div>
         </div>
         <p className="text-sm text-muted-foreground mt-1">
           {messages.length} email{messages.length !== 1 ? "s" : ""} waiting for review
