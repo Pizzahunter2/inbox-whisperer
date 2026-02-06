@@ -73,16 +73,8 @@ export function DashboardSidebar({
         </Link>
       </div>
 
-      {/* Add Email Button */}
-      <div className="p-4 space-y-2">
-        <Button 
-          variant="action" 
-          className="w-full justify-start gap-2"
-          onClick={onAddEmail}
-        >
-          <Plus className="w-4 h-4" />
-          Add Demo Email
-        </Button>
+      {/* Actions */}
+      <div className="p-4">
         <Button 
           variant="outline" 
           className="w-full justify-start gap-2 text-destructive hover:text-destructive"
@@ -149,11 +141,6 @@ export function DashboardSidebar({
           Sign Out
         </Button>
 
-        {/* Demo mode indicator */}
-        <div className="mt-3 flex items-center gap-2 text-xs text-sidebar-foreground/60 bg-sidebar-accent/50 rounded-lg px-3 py-2">
-          <Clock className="w-3 h-3" />
-          <span>Demo Mode Active</span>
-        </div>
       </div>
     </aside>
   );
