@@ -81,16 +81,6 @@ async function fetchAndStoreMessages(
   let imported = 0;
 
   for (const msgId of messageIds) {
-    // Check if message already exists
-    const { data: existing } = await supabase
-      .from('messages')
-      .select('id')
-      .eq('provider_message_id', msgId)
-      .eq('user_id', userId)
-      .single();
-
-    if (existing) continue;
-
     // Fetch full message details
     const msgDetailResponse = await fetch(
       `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}?format=full`,
@@ -128,10 +118,10 @@ async function fetchAndStoreMessages(
     // Get body snippet
     const bodySnippet = msgDetail.snippet || '';
 
-    // Insert message
+    // Upsert message (insert or skip if duplicate)
     const { error: insertError } = await supabase
       .from('messages')
-      .insert({
+      .upsert({
         user_id: userId,
         provider_message_id: msgId,
         subject,
@@ -142,6 +132,9 @@ async function fetchAndStoreMessages(
         received_at: date ? new Date(date).toISOString() : new Date().toISOString(),
         is_demo: false,
         processed: false,
+      }, {
+        onConflict: 'user_id,provider_message_id',
+        ignoreDuplicates: true,
       });
 
     if (!insertError) {
