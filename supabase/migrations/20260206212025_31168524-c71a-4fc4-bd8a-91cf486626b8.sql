@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN auto_add_ticket_events boolean DEFAULT false;
