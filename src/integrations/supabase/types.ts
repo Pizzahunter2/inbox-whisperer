@@ -194,6 +194,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          auto_add_ticket_events: boolean | null
           auto_archive_newsletters: boolean | null
           auto_suggest_slots: boolean | null
           avatar_url: string | null
@@ -213,6 +214,7 @@ export type Database = {
           working_hours_start: string | null
         }
         Insert: {
+          auto_add_ticket_events?: boolean | null
           auto_archive_newsletters?: boolean | null
           auto_suggest_slots?: boolean | null
           avatar_url?: string | null
@@ -232,6 +234,7 @@ export type Database = {
           working_hours_start?: string | null
         }
         Update: {
+          auto_add_ticket_events?: boolean | null
           auto_archive_newsletters?: boolean | null
           auto_suggest_slots?: boolean | null
           avatar_url?: string | null

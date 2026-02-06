@@ -23,6 +23,7 @@ interface Profile {
   working_hours_start: string;
   working_hours_end: string;
   meeting_default_duration: number;
+  auto_add_ticket_events: boolean;
 }
 
 serve(async (req) => {
@@ -61,7 +62,7 @@ serve(async (req) => {
     // Fetch user profile for tone and signature
     const { data: profile } = await supabase
       .from("profiles")
-      .select("reply_tone, signature, working_hours_start, working_hours_end, meeting_default_duration")
+      .select("reply_tone, signature, working_hours_start, working_hours_end, meeting_default_duration, auto_add_ticket_events")
       .eq("user_id", message.user_id)
       .single();
 
@@ -70,7 +71,8 @@ serve(async (req) => {
     const userSignature = profile?.signature || "";
     const workStart = profile?.working_hours_start || "09:00";
     const workEnd = profile?.working_hours_end || "17:00";
-    const meetingDuration = profile?.meeting_default_duration || 30;
+    const meetingDuration = profile?.meeting_default_duration || 60;
+    const autoAddTicketEvents = profile?.auto_add_ticket_events ?? false;
 
     // Call AI to analyze the email
     const systemPrompt = `You are an AI email assistant. Analyze emails and provide structured responses.
@@ -81,6 +83,7 @@ Your task is to:
 3. Determine confidence level: high, medium, or low
 4. Extract key entities like dates, times, deadlines, locations
 5. Generate a professional reply in a ${userTone} tone
+6. Detect if this is a ticket confirmation email (flight, train, bus, concert, event, hotel, etc.) and extract event details
 
 User's signature to include in replies:
 ${userSignature}`;
@@ -105,9 +108,18 @@ Respond ONLY with valid JSON in this exact format:
     "duration": "meeting duration if mentioned"
   },
   "proposed_action": "reply|draft|schedule|archive|mark_done",
-  "suggested_reply": "Professional reply text based on the ${userTone} tone"
+  "suggested_reply": "Professional reply text based on the ${userTone} tone",
+  "is_ticket_confirmation": true or false,
+  "ticket_event": {
+    "title": "e.g. Flight AA1234 JFK → LAX",
+    "start_datetime": "ISO 8601 datetime string of departure/event start",
+    "end_datetime": "ISO 8601 datetime string of arrival/event end",
+    "location": "departure airport, venue, etc.",
+    "description": "key details: confirmation number, seat, gate, etc."
+  }
 }
 
+If the email is NOT a ticket/booking confirmation, set "is_ticket_confirmation" to false and "ticket_event" to null.
 IMPORTANT: Do NOT include suggested_time_slots in your response. 
 The reply should acknowledge the meeting request but not propose specific times (we will add real calendar availability separately).
 Ensure the reply is complete, professional, and ready to send.`;
@@ -236,6 +248,42 @@ Ensure the reply is complete, professional, and ready to send.`;
       console.error("Proposal error:", propError);
     }
 
+    // Auto-create calendar event for ticket confirmations
+    let ticketEventCreated = false;
+    if (autoAddTicketEvents && analysis.is_ticket_confirmation && analysis.ticket_event) {
+      try {
+        const authHeader = req.headers.get("Authorization");
+        if (authHeader && analysis.ticket_event.start_datetime && analysis.ticket_event.end_datetime) {
+          const calendarResponse = await fetch(
+            `${supabaseUrl}/functions/v1/create-calendar-event`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: authHeader,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                messageId,
+                title: analysis.ticket_event.title || `Ticket: ${message.subject}`,
+                startTime: analysis.ticket_event.start_datetime,
+                endTime: analysis.ticket_event.end_datetime,
+                description: analysis.ticket_event.description || "",
+              }),
+            }
+          );
+
+          if (calendarResponse.ok) {
+            ticketEventCreated = true;
+            console.log("Auto-created calendar event for ticket confirmation");
+          } else {
+            console.error("Failed to auto-create ticket calendar event:", await calendarResponse.text());
+          }
+        }
+      } catch (calError) {
+        console.error("Error auto-creating ticket calendar event:", calError);
+      }
+    }
+
     // Mark message as processed
     await supabase
       .from("messages")
@@ -245,7 +293,8 @@ Ensure the reply is complete, professional, and ready to send.`;
     return new Response(
       JSON.stringify({ 
         success: true, 
-        analysis 
+        analysis,
+        ticketEventCreated,
       }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" } 
