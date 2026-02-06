@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { AddEmailModal } from "@/components/dashboard/AddEmailModal";
 import { DeleteOldEmailsModal } from "@/components/dashboard/DeleteOldEmailsModal";
@@ -21,26 +22,76 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [showAddEmail, setShowAddEmail] = useState(false);
   const [showDeleteOld, setShowDeleteOld] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const messagesRef = useRef<ChatMessage[]>([]);
+
+  // Keep ref in sync
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
+
+  // Save conversation to DB
+  const saveConversation = useCallback(async (msgs: ChatMessage[], convId: string | null) => {
+    if (msgs.length === 0 || !user) return;
+    // Generate a title from first user message
+    const firstUserMsg = msgs.find((m) => m.role === "user");
+    const title = firstUserMsg ? firstUserMsg.content.slice(0, 80) : "New Chat";
+
+    try {
+      if (convId) {
+        await supabase
+          .from("chat_conversations")
+          .update({ messages: msgs as any, title, updated_at: new Date().toISOString() })
+          .eq("id", convId);
+      } else {
+        const { data } = await supabase
+          .from("chat_conversations")
+          .insert({ user_id: user.id, messages: msgs as any, title })
+          .select("id")
+          .single();
+        if (data) setConversationId(data.id);
+      }
+    } catch (e) {
+      console.error("Failed to save conversation:", e);
+    }
+  }, [user]);
+
+  // Auto-save when navigating away
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (messagesRef.current.length > 0) {
+        saveConversation(messagesRef.current, conversationId);
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      // Save on unmount (navigation away)
+      if (messagesRef.current.length > 0) {
+        saveConversation(messagesRef.current, conversationId);
+      }
+    };
+  }, [conversationId, saveConversation]);
 
   const handleSend = async () => {
     const trimmed = input.trim();
     if (!trimmed || isLoading) return;
 
     const userMsg: ChatMessage = { role: "user", content: trimmed };
-    setMessages((prev) => [...prev, userMsg]);
+    const updatedMessages = [...messages, userMsg];
+    setMessages(updatedMessages);
     setInput("");
     setIsLoading(true);
 
     let assistantSoFar = "";
 
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
       const { data: { session } } = await supabase.auth.getSession();
 
       const resp = await fetch(CHAT_URL, {
@@ -50,7 +101,7 @@ export default function Chat() {
           Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
-        body: JSON.stringify({ messages: [...messages, userMsg] }),
+        body: JSON.stringify({ messages: updatedMessages }),
       });
 
       if (!resp.ok) {
@@ -125,7 +176,6 @@ export default function Chat() {
         description: e.message || "Failed to get a response.",
         variant: "destructive",
       });
-      // Remove the user message if no assistant response was generated
       if (!assistantSoFar) {
         setMessages((prev) => prev.slice(0, -1));
       }
