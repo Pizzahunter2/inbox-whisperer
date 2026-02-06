@@ -61,6 +61,70 @@ async function refreshTokenIfNeeded(
   return account.access_token_encrypted;
 }
 
+// Decode base64url-encoded body data
+function decodeBase64Url(data: string): string {
+  const base64 = data.replace(/-/g, '+').replace(/_/g, '/');
+  try {
+    return atob(base64);
+  } catch {
+    return '';
+  }
+}
+
+// Recursively extract body text from Gmail message payload
+// Prefers text/plain, falls back to text/html (stripped of tags)
+function extractBody(payload: any): string {
+  if (!payload) return '';
+
+  let plainText = '';
+  let htmlText = '';
+
+  function walkParts(part: any) {
+    const mimeType = part.mimeType || '';
+
+    if (part.body?.data) {
+      const decoded = decodeBase64Url(part.body.data);
+      if (mimeType === 'text/plain') {
+        plainText += decoded;
+      } else if (mimeType === 'text/html') {
+        htmlText += decoded;
+      }
+    }
+
+    if (part.parts) {
+      for (const child of part.parts) {
+        walkParts(child);
+      }
+    }
+  }
+
+  walkParts(payload);
+
+  // If we have HTML, strip tags but preserve structure for better text extraction
+  if (htmlText && !plainText) {
+    plainText = htmlText
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<\/div>/gi, '\n')
+      .replace(/<\/tr>/gi, '\n')
+      .replace(/<\/td>/gi, ' | ')
+      .replace(/<\/th>/gi, ' | ')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&#(\d+);/g, (_m: string, c: string) => String.fromCharCode(parseInt(c)))
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  // Truncate to ~10000 chars to avoid DB bloat but keep enough for AI analysis
+  return plainText.slice(0, 10000);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -173,8 +237,8 @@ serve(async (req) => {
       // Get body snippet
       const bodySnippet = msgDetail.snippet || '';
 
-      // Get full body (simplified - just the snippet for now)
-      const bodyFull = bodySnippet;
+      // Extract full body from message parts
+      const bodyFull = extractBody(msgDetail.payload) || bodySnippet;
 
       // Upsert message (insert or ignore if exists)
       const { data: newMessage, error: upsertError } = await supabase
