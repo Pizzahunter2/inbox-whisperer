@@ -87,7 +87,10 @@ serve(async (req) => {
       );
     }
 
-    const { durationMinutes = 30 } = await req.json().catch(() => ({}));
+    const { durationMinutes = 60 } = await req.json().catch(() => ({}));
+    
+    // Minimum gap between suggested slots (2 hours) to spread them out
+    const slotGapMs = 2 * 60 * 60 * 1000;
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
@@ -267,8 +270,8 @@ serve(async (req) => {
             start: slotStart.toISOString(),
             end: slotEnd.toISOString(),
           });
-          // Move to after this slot
-          slotStart = slotEnd;
+          // Move past this slot plus the gap to spread out suggestions
+          slotStart = new Date(slotEnd.getTime() + slotGapMs);
         } else {
           // Find the end of the conflicting busy slot
           const conflictingSlot = busySlots.find(
