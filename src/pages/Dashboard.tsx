@@ -236,6 +236,7 @@ export default function Dashboard() {
           processingId={processingId}
           onSelect={setSelectedMessage}
           onProcess={handleProcessEmail}
+          onRefresh={fetchMessages}
         />
         
         {selectedMessage && (
