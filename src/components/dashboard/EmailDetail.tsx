@@ -423,31 +423,37 @@ Best`;
       let startTime: string | null = null;
       let endTime: string | null = null;
 
-      if (entities.date) {
+      // Priority 1: Use ticket ISO datetimes stored by process-email
+      if (entities.ticket_start_datetime && entities.ticket_end_datetime) {
+        const s = new Date(String(entities.ticket_start_datetime));
+        const e = new Date(String(entities.ticket_end_datetime));
+        if (isValid(s) && isValid(e)) {
+          startTime = s.toISOString();
+          endTime = e.toISOString();
+        }
+      }
+
+      // Priority 2: Parse from date + time entities
+      if (!startTime && entities.date) {
         try {
           const dateStr = String(entities.date)
             .replace(/(\d+)(st|nd|rd|th)/gi, '$1')
             .replace(/\./g, '')
             .trim();
 
-          // Extract the first usable time from entities.time (e.g. "2-4 PM" → "2 PM", "10:00 AM" → "10:00 AM")
           let timeStr = "";
           if (entities.time) {
             const raw = String(entities.time);
-            // Match first time-like pattern: "2:00 PM", "2 PM", "10 AM", "14:00"
-            const timeMatch = raw.match(/(\d{1,2}(?::\d{2})?)\s*(AM|PM|am|pm)?/i);
-            if (timeMatch) {
-              const hourPart = timeMatch[1];
-              const meridiem = timeMatch[2] || "";
-              timeStr = `${hourPart} ${meridiem}`.trim();
-              // Ensure we have :00 if no minutes
-              if (!hourPart.includes(":")) {
-                timeStr = `${hourPart}:00 ${meridiem}`.trim();
+            if (!/not\s*specified|n\/?a|none|tbd/i.test(raw)) {
+              const timeMatch = raw.match(/(\d{1,2}(?::\d{2})?)\s*(AM|PM|am|pm)?/i);
+              if (timeMatch) {
+                const hourPart = timeMatch[1];
+                const meridiem = timeMatch[2] || "";
+                timeStr = hourPart.includes(":") ? `${hourPart} ${meridiem}`.trim() : `${hourPart}:00 ${meridiem}`.trim();
               }
             }
           }
 
-          // Combine date + time for parsing
           const combined = timeStr ? `${dateStr} ${timeStr}` : dateStr;
 
           const dateFormats = timeStr
@@ -468,26 +474,30 @@ Best`;
             const attempt = parse(combined, fmt, new Date());
             if (isValid(attempt)) { parsed = attempt; break; }
           }
-          if (!parsed || !isValid(parsed)) {
-            parsed = new Date(combined);
-          }
-          if (!parsed || !isValid(parsed)) {
-            parsed = new Date(dateStr);
-          }
+          if (!parsed || !isValid(parsed)) parsed = new Date(combined);
+          if (!parsed || !isValid(parsed)) parsed = new Date(dateStr);
 
           if (parsed && isValid(parsed)) {
-            // Parse duration: handle "2 hours", "30 min", "3 days", or plain number
+            // Parse duration: handle "1h 47m", "2 hours", "30 min"
             let durationMinutes = 60;
             if (entities.duration) {
               const durStr = String(entities.duration).toLowerCase();
-              const durMatch = durStr.match(/(\d+)\s*(hour|hr|minute|min|day)?s?/i);
-              if (durMatch) {
-                const val = parseInt(durMatch[1], 10);
-                const unit = (durMatch[2] || "min").toLowerCase();
-                if (unit.startsWith("hour") || unit.startsWith("hr")) durationMinutes = val * 60;
-                else if (unit.startsWith("day")) durationMinutes = val * 60 * 24;
-                else durationMinutes = val;
+              let totalMin = 0;
+              const hourMatch = durStr.match(/(\d+)\s*h/);
+              const minMatch = durStr.match(/(\d+)\s*m/);
+              if (hourMatch) totalMin += parseInt(hourMatch[1], 10) * 60;
+              if (minMatch) totalMin += parseInt(minMatch[1], 10);
+              if (totalMin === 0) {
+                const singleMatch = durStr.match(/(\d+)\s*(hour|minute|min|day)?s?/i);
+                if (singleMatch) {
+                  const val = parseInt(singleMatch[1], 10);
+                  const unit = (singleMatch[2] || "min").toLowerCase();
+                  if (unit.startsWith("hour")) totalMin = val * 60;
+                  else if (unit.startsWith("day")) totalMin = val * 60 * 24;
+                  else totalMin = val;
+                }
               }
+              if (totalMin > 0) durationMinutes = totalMin;
             }
             startTime = parsed.toISOString();
             endTime = addMinutes(parsed, durationMinutes).toISOString();
