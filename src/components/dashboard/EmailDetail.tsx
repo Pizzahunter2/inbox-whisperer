@@ -575,27 +575,26 @@ Best`;
               </div>
             )}
 
-            {/* Editable reply area */}
-            {message.proposal.suggested_reply && (
-              <div className="bg-card border border-border rounded-xl p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-medium text-foreground flex items-center gap-2">
-                    <Edit3 className="w-4 h-4 text-accent" />
-                    Reply Draft
-                    {selectedTimeSlot && (
-                      <Badge variant="secondary" className="ml-2">
-                        Time selected
-                      </Badge>
-                    )}
-                  </h4>
-                </div>
-                
-                <Textarea
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  className="min-h-40 font-mono text-sm"
-                  placeholder="Edit your reply..."
-                />
+            {/* Editable reply area - always show when proposal exists */}
+            <div className="bg-card border border-border rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium text-foreground flex items-center gap-2">
+                  <Edit3 className="w-4 h-4 text-accent" />
+                  Reply Draft
+                  {selectedTimeSlot && (
+                    <Badge variant="secondary" className="ml-2">
+                      Time selected
+                    </Badge>
+                  )}
+                </h4>
+              </div>
+              
+              <Textarea
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                className="min-h-40 font-mono text-sm"
+                placeholder="Edit your reply..."
+              />
 
                 <div className="mt-4 pt-4 border-t border-border">
                   <h5 className="text-sm font-medium text-foreground mb-3">Actions</h5>
@@ -645,7 +644,6 @@ Best`;
                   </div>
                 </div>
               </div>
-            )}
           </div>
         ) : (
           /* Not yet processed */
