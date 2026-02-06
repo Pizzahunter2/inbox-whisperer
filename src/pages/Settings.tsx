@@ -25,7 +25,6 @@ interface Profile {
   auto_suggest_slots: boolean;
   auto_archive_newsletters: boolean;
   flag_invoices: boolean;
-  auto_add_ticket_events: boolean;
   demo_mode: boolean;
 }
 
@@ -45,7 +44,6 @@ export default function Settings() {
     auto_suggest_slots: true,
     auto_archive_newsletters: false,
     flag_invoices: true,
-    auto_add_ticket_events: false,
     demo_mode: true,
   });
   const [loading, setLoading] = useState(true);
@@ -76,7 +74,6 @@ export default function Settings() {
           auto_suggest_slots: data.auto_suggest_slots ?? true,
           auto_archive_newsletters: data.auto_archive_newsletters ?? false,
           flag_invoices: data.flag_invoices ?? true,
-          auto_add_ticket_events: data.auto_add_ticket_events ?? false,
           demo_mode: data.demo_mode ?? true,
         });
       }
@@ -321,18 +318,6 @@ export default function Settings() {
                   />
                 </div>
 
-                <div className="flex items-center justify-between py-2">
-                  <div>
-                    <Label>Auto-Add Ticket Events to Calendar</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Automatically create calendar events from flight, train, concert, and other ticket confirmation emails
-                    </p>
-                  </div>
-                  <Switch
-                    checked={profile.auto_add_ticket_events}
-                    onCheckedChange={(checked) => setProfile({ ...profile, auto_add_ticket_events: checked })}
-                  />
-                </div>
               </CardContent>
             </Card>
 

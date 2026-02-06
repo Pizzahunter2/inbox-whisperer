@@ -414,6 +414,111 @@ Best`;
     }
   };
 
+  const handleAddTicketToCalendar = async () => {
+    setCreatingEvent(true);
+    try {
+      // Build event from extracted entities
+      const eventTitle = `${message.subject}`;
+      const eventDescription = `Email from: ${message.from_email}\nSubject: ${message.subject}\n\n${message.body_snippet || ""}`;
+
+      // Try to parse date/time from entities
+      let startTime: string | null = null;
+      let endTime: string | null = null;
+
+      if (entities.date) {
+        try {
+          const dateStr = String(entities.date);
+          const timeStr = entities.time ? String(entities.time) : "09:00 AM";
+          const combined = `${dateStr} ${timeStr}`;
+          
+          // Try multiple parse formats
+          const formats = [
+            "MMMM d, yyyy h:mm a",
+            "MMMM d, yyyy",
+            "MMM d, yyyy h:mm a", 
+            "MMM d, yyyy",
+            "yyyy-MM-dd h:mm a",
+            "yyyy-MM-dd",
+          ];
+          
+          let parsed: Date | null = null;
+          for (const fmt of formats) {
+            const attempt = parse(combined, fmt, new Date());
+            if (isValid(attempt)) { parsed = attempt; break; }
+          }
+          if (!parsed || !isValid(parsed)) {
+            // Try with just date part
+            for (const fmt of formats) {
+              const attempt = parse(dateStr, fmt, new Date());
+              if (isValid(attempt)) { parsed = attempt; break; }
+            }
+          }
+          if (!parsed || !isValid(parsed)) {
+            parsed = new Date(dateStr);
+          }
+
+          if (parsed && isValid(parsed)) {
+            const duration = entities.duration ? parseInt(String(entities.duration)) || 60 : 60;
+            startTime = parsed.toISOString();
+            endTime = addMinutes(parsed, duration).toISOString();
+          }
+        } catch (e) {
+          console.error("Failed to parse ticket date:", e);
+        }
+      }
+
+      if (!startTime || !endTime) {
+        toast({
+          title: "Cannot Parse Date",
+          description: "Could not extract a valid date/time from this email. Please create the event manually.",
+          variant: "destructive",
+        });
+        setCreatingEvent(false);
+        return;
+      }
+
+      const { data, error } = await invokeFunctionWithRetry("create-calendar-event", {
+        body: {
+          messageId: message.id,
+          title: eventTitle,
+          startTime,
+          endTime,
+          description: eventDescription,
+        },
+      });
+
+      if (error) {
+        let errorMessage = error.message || "Could not create calendar event";
+        try {
+          if (error.context?.body) {
+            const bodyText = typeof error.context.body === 'string' ? error.context.body : JSON.stringify(error.context.body);
+            const parsed = JSON.parse(bodyText);
+            if (parsed.error) errorMessage = parsed.error;
+            if (parsed.needsReconnect) {
+              setNeedsReconnect(true);
+              return;
+            }
+          }
+        } catch {}
+        throw new Error(errorMessage);
+      }
+
+      if (data?.error) throw new Error(data.error);
+
+      setCalendarEventLink(data.eventLink);
+      toast({ title: "Event Added!", description: "Calendar event created from ticket details." });
+    } catch (error: any) {
+      console.error("Error creating ticket calendar event:", error);
+      toast({
+        title: "Failed to Create Event",
+        description: error.message || "Could not create calendar event.",
+        variant: "destructive",
+      });
+    } finally {
+      setCreatingEvent(false);
+    }
+  };
+
   const handleReconnectGoogle = () => {
     // Navigate to settings for reconnection
     window.location.href = "/settings";
@@ -514,7 +619,29 @@ Best`;
             {/* Extracted entities */}
             {Object.keys(entities).length > 0 && (
               <div className="bg-muted/50 rounded-xl p-4">
-                <h4 className="font-medium text-foreground mb-3">Key Details</h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium text-foreground">Key Details</h4>
+                  {(entities.date || entities.time) && !calendarEventLink && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleAddTicketToCalendar}
+                      disabled={creatingEvent || needsReconnect}
+                    >
+                      {creatingEvent ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Adding...
+                        </>
+                      ) : (
+                        <>
+                          <CalendarPlus className="w-3 h-3" />
+                          Add to Calendar
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   {entities.date && (
                     <div className="flex items-center gap-2 text-sm">
