@@ -8,7 +8,8 @@ import {
   LogOut, 
   Plus,
   Clock,
-  Trash2
+  Trash2,
+  MessageSquare
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -45,6 +46,12 @@ export function DashboardSidebar({
       href: "/history", 
       count: completedCount,
       active: location.pathname === "/history" 
+    },
+    {
+      icon: MessageSquare,
+      label: "Inbox Chat",
+      href: "/chat",
+      active: location.pathname === "/chat"
     },
     { 
       icon: Settings, 
