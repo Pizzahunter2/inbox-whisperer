@@ -15,7 +15,7 @@ import {
   ChevronRight,
   RefreshCw,
 } from "lucide-react";
-import { formatDistanceToNow, startOfDay, endOfDay, isAfter, isBefore } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 
 interface EmailQueueProps {
   messages: Message[];
@@ -57,16 +57,10 @@ export function EmailQueue({
 
 
   const handleBulkAnalyze = async () => {
-    const from = startOfDay(new Date());
-    const to = endOfDay(new Date());
-
-    const unanalyzed = messages.filter((m) => {
-      const received = new Date(m.received_at);
-      return !m.classification && !isAfter(from, received) && !isBefore(to, received);
-    });
+    const unanalyzed = messages.filter((m) => !m.classification);
 
     if (unanalyzed.length === 0) {
-      toast({ title: "No Emails", description: "No unanalyzed emails from today." });
+      toast({ title: "No Emails", description: "All emails have already been analyzed." });
       return;
     }
 
@@ -183,7 +177,7 @@ export function EmailQueue({
               ) : (
                 <Sparkles className="w-4 h-4" />
               )}
-              Analyze Today
+              Analyze All
             </Button>
             <Button 
               variant="outline" 

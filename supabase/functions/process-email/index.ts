@@ -102,10 +102,10 @@ Respond ONLY with valid JSON in this exact format:
   "confidence": "high|medium|low",
   "extracted_entities": {
     "date": "extracted date if any",
-    "time": "extracted time if any",
+    "time": "extracted departure/start time if any (e.g. '12:07 PM'). IMPORTANT: Always extract the specific start time from the email - for flights use the departure time, for events use the event start time. Never leave this null or 'Not specified' if a time is mentioned in the email.",
     "deadline": "deadline if mentioned",
     "location": "meeting location if any",
-    "duration": "meeting duration if mentioned"
+    "duration": "duration if mentioned (e.g. '1h 47m', '30 min', '2 hours')"
   },
   "proposed_action": "reply|draft|schedule|archive|mark_done",
   "suggested_reply": "Professional reply text based on the ${userTone} tone",
@@ -226,7 +226,13 @@ Ensure the reply is complete, professional, and ready to send.`;
         message_id: messageId,
         category: analysis.category,
         confidence: analysis.confidence,
-        extracted_entities: analysis.extracted_entities || {},
+        extracted_entities: {
+          ...(analysis.extracted_entities || {}),
+          ...(analysis.is_ticket_confirmation && analysis.ticket_event ? {
+            ticket_start_datetime: analysis.ticket_event.start_datetime,
+            ticket_end_datetime: analysis.ticket_event.end_datetime,
+          } : {}),
+        },
       }, { onConflict: "message_id" });
 
     if (classError) {
