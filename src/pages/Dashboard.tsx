@@ -9,6 +9,7 @@ import { AddEmailModal } from "@/components/dashboard/AddEmailModal";
 import { DeleteOldEmailsModal } from "@/components/dashboard/DeleteOldEmailsModal";
 import { useToast } from "@/hooks/use-toast";
 import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
+import { invokeFunctionWithRetry } from "@/lib/invokeFunctionWithRetry";
 
 export interface Message {
   id: string;
@@ -123,7 +124,7 @@ export default function Dashboard() {
   const handleProcessEmail = async (messageId: string) => {
     setProcessingId(messageId);
     try {
-      const { data, error } = await supabase.functions.invoke("process-email", {
+      const { data, error } = await invokeFunctionWithRetry("process-email", {
         body: { messageId },
       });
 
