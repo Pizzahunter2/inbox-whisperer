@@ -4,13 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { MeetingTimeSelector } from "./MeetingTimeSelector";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  X, 
-  Loader2, 
-  Send, 
-  Archive, 
+import { invokeFunctionWithRetry } from "@/lib/invokeFunctionWithRetry";
+import {
+  X,
+  Loader2,
+  Send,
+  Archive,
   XCircle,
   Clock,
   User,
@@ -22,7 +22,7 @@ import {
   Edit3,
   CalendarPlus,
   ExternalLink,
-  AlertTriangle
+  AlertTriangle,
 } from "lucide-react";
 import { formatDistanceToNow, format, parseISO, parse, addMinutes, isValid } from "date-fns";
 
@@ -141,13 +141,12 @@ Best`;
   const handleSendEmail = async () => {
     setSendingEmail(true);
     try {
-      const { data, error } = await supabase.functions.invoke("send-email", {
+      const { data, error } = await invokeFunctionWithRetry("send-gmail", {
         body: {
           messageId: message.id,
-          // Don't pass threadId - provider_message_id is a message ID, not thread ID
-          toEmail: message.from_email,
+          to: message.from_email,
           subject: message.subject,
-          replyText,
+          body: replyText,
         },
       });
 
@@ -341,7 +340,7 @@ Best`;
       const eventTitle = `Meeting: ${message.from_name || message.subject}`;
       const eventDescription = `Email from: ${message.from_email}\nSubject: ${message.subject}\n\nOriginal message:\n${message.body_snippet || message.body_full || ""}`;
 
-      const { data, error } = await supabase.functions.invoke("create-calendar-event", {
+      const { data, error } = await invokeFunctionWithRetry("create-calendar-event", {
         body: {
           messageId: message.id,
           title: eventTitle,
