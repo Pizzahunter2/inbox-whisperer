@@ -26,6 +26,165 @@ interface Profile {
   auto_add_ticket_events: boolean;
 }
 
+interface ImageAttachment {
+  mimeType: string;
+  base64Data: string;
+  filename: string;
+}
+
+async function refreshGmailToken(supabase: any, account: any, userId: string): Promise<string | null> {
+  const now = new Date();
+  const expiresAt = new Date(account.token_expires_at);
+
+  if (expiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
+    if (!account.refresh_token_encrypted) return null;
+
+    const clientId = Deno.env.get("GOOGLE_CLIENT_ID")!;
+    const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
+
+    const response = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: account.refresh_token_encrypted,
+        grant_type: "refresh_token",
+      }),
+    });
+
+    const tokenData = await response.json();
+    if (tokenData.error) {
+      console.error("Token refresh error:", tokenData);
+      return null;
+    }
+
+    const newExpiresAt = new Date(Date.now() + tokenData.expires_in * 1000).toISOString();
+    await supabase
+      .from("connected_accounts")
+      .update({
+        access_token_encrypted: tokenData.access_token,
+        token_expires_at: newExpiresAt,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", userId)
+      .eq("provider", "gmail");
+
+    return tokenData.access_token;
+  }
+
+  return account.access_token_encrypted;
+}
+
+async function fetchImageAttachments(
+  providerMessageId: string,
+  accessToken: string,
+  maxImages = 5,
+  maxSizeBytes = 5 * 1024 * 1024
+): Promise<ImageAttachment[]> {
+  const images: ImageAttachment[] = [];
+
+  try {
+    // Fetch message metadata to find attachments
+    const msgResponse = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${providerMessageId}?format=full`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+
+    if (!msgResponse.ok) {
+      console.error("Failed to fetch Gmail message for attachments:", msgResponse.status);
+      return images;
+    }
+
+    const msgData = await msgResponse.json();
+
+    // Recursively find image parts
+    const imageParts: { attachmentId: string; mimeType: string; filename: string; size: number }[] = [];
+
+    function findImageParts(part: any) {
+      const mime = part.mimeType || "";
+      if (
+        mime.startsWith("image/") &&
+        part.body?.attachmentId &&
+        (part.body?.size || 0) <= maxSizeBytes
+      ) {
+        imageParts.push({
+          attachmentId: part.body.attachmentId,
+          mimeType: mime,
+          filename: part.filename || "image",
+          size: part.body.size || 0,
+        });
+      }
+      if (part.parts) {
+        for (const child of part.parts) findImageParts(child);
+      }
+    }
+
+    findImageParts(msgData.payload);
+
+    // Download up to maxImages attachments
+    for (const imgPart of imageParts.slice(0, maxImages)) {
+      try {
+        const attResponse = await fetch(
+          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${providerMessageId}/attachments/${imgPart.attachmentId}`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+
+        if (!attResponse.ok) continue;
+
+        const attData = await attResponse.json();
+        if (attData.data) {
+          // Gmail returns base64url-encoded data, convert to standard base64
+          const base64 = attData.data.replace(/-/g, "+").replace(/_/g, "/");
+          images.push({
+            mimeType: imgPart.mimeType,
+            base64Data: base64,
+            filename: imgPart.filename,
+          });
+        }
+      } catch (e) {
+        console.error("Failed to download attachment:", imgPart.filename, e);
+      }
+    }
+  } catch (e) {
+    console.error("Error fetching image attachments:", e);
+  }
+
+  return images;
+}
+
+function buildAIMessages(
+  systemPrompt: string,
+  userPrompt: string,
+  images: ImageAttachment[]
+): any[] {
+  const messages: any[] = [{ role: "system", content: systemPrompt }];
+
+  if (images.length === 0) {
+    messages.push({ role: "user", content: userPrompt });
+  } else {
+    // Build multimodal content array
+    const contentParts: any[] = [{ type: "text", text: userPrompt }];
+
+    for (const img of images) {
+      contentParts.push({
+        type: "image_url",
+        image_url: {
+          url: `data:${img.mimeType};base64,${img.base64Data}`,
+        },
+      });
+      contentParts.push({
+        type: "text",
+        text: `[Attached image: ${img.filename}]`,
+      });
+    }
+
+    messages.push({ role: "user", content: contentParts });
+  }
+
+  return messages;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -74,7 +233,37 @@ serve(async (req) => {
     const meetingDuration = profile?.meeting_default_duration || 60;
     const autoAddTicketEvents = profile?.auto_add_ticket_events ?? false;
 
-    // Call AI to analyze the email
+    // Fetch image attachments from Gmail if we have a provider message ID
+    let imageAttachments: ImageAttachment[] = [];
+    if (message.provider_message_id) {
+      try {
+        const { data: account } = await supabase
+          .from("connected_accounts")
+          .select("*")
+          .eq("user_id", message.user_id)
+          .eq("provider", "gmail")
+          .single();
+
+        if (account && account.status === "connected") {
+          const accessToken = await refreshGmailToken(supabase, account, message.user_id);
+          if (accessToken) {
+            imageAttachments = await fetchImageAttachments(message.provider_message_id, accessToken);
+            if (imageAttachments.length > 0) {
+              console.log(`Found ${imageAttachments.length} image attachment(s) for analysis`);
+            }
+          }
+        }
+      } catch (imgError) {
+        console.error("Failed to fetch image attachments:", imgError);
+        // Continue without images
+      }
+    }
+
+    // Build system prompt - mention images if present
+    const imageContext = imageAttachments.length > 0
+      ? `\n\nThis email contains ${imageAttachments.length} attached image(s). Analyze them carefully and incorporate any relevant information (text in images, charts, receipts, tickets, screenshots, etc.) into your summary and response.`
+      : "";
+
     const systemPrompt = `You are an AI email assistant. Analyze emails and provide structured responses.
 
 Your task is to:
@@ -83,7 +272,7 @@ Your task is to:
 3. Determine confidence level: high, medium, or low
 4. Extract key entities like dates, times, deadlines, locations
 5. Generate a professional reply in a ${userTone} tone
-6. Detect if this is a ticket confirmation email (flight, train, bus, concert, event, hotel, etc.) and extract event details
+6. Detect if this is a ticket confirmation email (flight, train, bus, concert, event, hotel, etc.) and extract event details${imageContext}
 
 User's signature to include in replies:
 ${userSignature}`;
@@ -94,6 +283,7 @@ From: ${message.from_name || "Unknown"} <${message.from_email}>
 Subject: ${message.subject}
 Body:
 ${emailContent}
+${imageAttachments.length > 0 ? `\n[This email has ${imageAttachments.length} image attachment(s) included below for your analysis]` : ""}
 
 Respond ONLY with valid JSON in this exact format:
 {
@@ -105,7 +295,8 @@ Respond ONLY with valid JSON in this exact format:
     "time": "extracted departure/start time if any (e.g. '12:07 PM'). IMPORTANT: Always extract the specific start time from the email - for flights use the departure time, for events use the event start time. Never leave this null or 'Not specified' if a time is mentioned in the email.",
     "deadline": "deadline if mentioned",
     "location": "meeting location if any",
-    "duration": "duration if mentioned (e.g. '1h 47m', '30 min', '2 hours')"
+    "duration": "duration if mentioned (e.g. '1h 47m', '30 min', '2 hours')",
+    "image_content": "brief description of what was found in any attached images, or null if no images"
   },
   "proposed_action": "reply|draft|schedule|archive|mark_done",
   "suggested_reply": "Professional reply text based on the ${userTone} tone",
@@ -124,6 +315,9 @@ IMPORTANT: Do NOT include suggested_time_slots in your response.
 The reply should acknowledge the meeting request but not propose specific times (we will add real calendar availability separately).
 Ensure the reply is complete, professional, and ready to send.`;
 
+    // Build messages array (multimodal if images present)
+    const aiMessages = buildAIMessages(systemPrompt, userPrompt, imageAttachments);
+
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -132,10 +326,7 @@ Ensure the reply is complete, professional, and ready to send.`;
       },
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
+        messages: aiMessages,
         temperature: 0.3,
       }),
     });
@@ -164,7 +355,6 @@ Ensure the reply is complete, professional, and ready to send.`;
     // Parse the JSON response
     let analysis;
     try {
-      // Extract JSON from the response (it might be wrapped in markdown code blocks)
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         analysis = JSON.parse(jsonMatch[0]);
@@ -173,7 +363,6 @@ Ensure the reply is complete, professional, and ready to send.`;
       }
     } catch (parseError) {
       console.error("Failed to parse AI response:", content);
-      // Provide default values if parsing fails
       analysis = {
         summary: "Email received - AI analysis unavailable",
         category: "other",
@@ -188,7 +377,6 @@ Ensure the reply is complete, professional, and ready to send.`;
     let suggestedTimeSlots: any[] = [];
     if (analysis.category === "meeting_request") {
       try {
-        // Get user's JWT from the original request to call suggest-meeting-times as them
         const authHeader = req.headers.get("Authorization");
         if (authHeader) {
           const suggestResponse = await fetch(
@@ -215,7 +403,6 @@ Ensure the reply is complete, professional, and ready to send.`;
         }
       } catch (calendarError) {
         console.error("Failed to get calendar availability:", calendarError);
-        // Continue without calendar slots - user can still reply manually
       }
     }
 
@@ -231,6 +418,10 @@ Ensure the reply is complete, professional, and ready to send.`;
           ...(analysis.is_ticket_confirmation && analysis.ticket_event ? {
             ticket_start_datetime: analysis.ticket_event.start_datetime,
             ticket_end_datetime: analysis.ticket_event.end_datetime,
+          } : {}),
+          ...(imageAttachments.length > 0 ? {
+            has_image_attachments: true,
+            image_count: imageAttachments.length,
           } : {}),
         },
       }, { onConflict: "message_id" });
@@ -301,6 +492,7 @@ Ensure the reply is complete, professional, and ready to send.`;
         success: true, 
         analysis,
         ticketEventCreated,
+        imagesAnalyzed: imageAttachments.length,
       }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" } 
