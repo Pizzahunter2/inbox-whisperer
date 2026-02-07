@@ -12,7 +12,7 @@ export function Navbar() {
             <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center">
               <Mail className="w-5 h-5 text-accent-foreground" />
             </div>
-            <span className="font-semibold text-lg">Inbox Middleman</span>
+            <span className="font-semibold text-lg">Inbox Pilot</span>
           </Link>
           
           {/* Auth buttons */}

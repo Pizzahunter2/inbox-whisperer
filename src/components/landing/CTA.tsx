@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Play } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export function CTA() {
@@ -13,20 +13,19 @@ export function CTA() {
               Ready to reclaim your inbox?
             </h2>
             <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Start with demo mode to see how Inbox Middleman works. No email connection required—explore with sample data.
+              Connect your Gmail, and Inbox Pilot handles the rest. Sign up in seconds and start saving hours every week.
             </p>
             
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
               <Button variant="action" size="xl" asChild>
                 <Link to="/signup">
-                  Create Free Account
+                  Get Started Free
                   <ArrowRight className="w-5 h-5" />
                 </Link>
               </Button>
               <Button variant="outline" size="xl" asChild>
-                <Link to="/login?demo=true">
-                  <Play className="w-5 h-5" />
-                  Try Demo Mode
+                <Link to="/login">
+                  Sign In
                 </Link>
               </Button>
             </div>
