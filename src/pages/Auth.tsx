@@ -103,7 +103,7 @@ export default function Auth({ mode }: AuthProps) {
             <CardDescription>
               {isLogin 
                 ? "Sign in to access your inbox dashboard" 
-                : "Get started with Inbox Middleman for free"
+                : "Get started with Inbox Pilot for free"
               }
               {isDemo && (
                 <span className="block mt-2 text-accent font-medium">

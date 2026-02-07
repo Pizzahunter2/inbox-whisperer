@@ -11,7 +11,7 @@ export function Footer() {
             <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
               <Mail className="w-4 h-4 text-accent-foreground" />
             </div>
-            <span className="font-semibold text-lg">Inbox Middleman</span>
+            <span className="font-semibold text-lg">Inbox Pilot</span>
           </Link>
           
           {/* Links */}
@@ -26,7 +26,7 @@ export function Footer() {
           
           {/* Copyright */}
           <p className="text-sm text-primary-foreground/50">
-            © {new Date().getFullYear()} Inbox Middleman
+            © {new Date().getFullYear()} Inbox Pilot
           </p>
         </div>
       </div>

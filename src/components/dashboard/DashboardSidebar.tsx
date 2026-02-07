@@ -69,7 +69,7 @@ export function DashboardSidebar({
           <div className="w-9 h-9 rounded-lg bg-sidebar-primary flex items-center justify-center">
             <Mail className="w-5 h-5 text-sidebar-primary-foreground" />
           </div>
-          <span className="font-semibold text-lg">Inbox Middleman</span>
+          <span className="font-semibold text-lg">Inbox Pilot</span>
         </Link>
       </div>
 

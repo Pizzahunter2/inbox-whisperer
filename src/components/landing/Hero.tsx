@@ -28,7 +28,7 @@ export function Hero() {
           
           {/* Subheadline */}
           <p className="text-lg md:text-xl text-primary-foreground/80 max-w-2xl mx-auto mb-10 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-            Inbox Middleman reads your emails, summarizes them, and proposes responses. 
+            Inbox Pilot reads your emails, summarizes them, and proposes responses. 
             You just approve, edit, or decline. Reclaim hours every week.
           </p>
           
@@ -55,7 +55,7 @@ export function Hero() {
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-accent" />
-              <span>Demo mode available</span>
+              <span>Works with Gmail</span>
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-accent" />
