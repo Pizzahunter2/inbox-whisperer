@@ -185,6 +185,8 @@ function buildAIMessages(
   return messages;
 }
 
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -194,7 +196,17 @@ serve(async (req) => {
     const { messageId } = await req.json();
     
     if (!messageId) {
-      throw new Error("messageId is required");
+      return new Response(
+        JSON.stringify({ error: "messageId is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!uuidRegex.test(messageId)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid messageId format" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -204,8 +216,30 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Authenticate the calling user
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Fetch the message
     const { data: message, error: messageError } = await supabase
@@ -215,7 +249,18 @@ serve(async (req) => {
       .single();
 
     if (messageError || !message) {
-      throw new Error("Message not found");
+      return new Response(
+        JSON.stringify({ error: "Message not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Verify ownership
+    if (message.user_id !== user.id) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Fetch user profile for tone and signature
@@ -346,7 +391,7 @@ Ensure the reply is complete, professional, and ready to send.`;
       }
       const errorText = await aiResponse.text();
       console.error("AI API error:", aiResponse.status, errorText);
-      throw new Error("Failed to analyze email");
+      throw new Error("Failed to analyze email. Please try again later.");
     }
 
     const aiData = await aiResponse.json();

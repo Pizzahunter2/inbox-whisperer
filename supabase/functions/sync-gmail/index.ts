@@ -198,7 +198,7 @@ serve(async (req) => {
     if (messagesData.error) {
       console.error('Gmail API error:', messagesData.error);
       return new Response(
-        JSON.stringify({ error: 'Gmail API error', details: messagesData.error }),
+        JSON.stringify({ error: 'Failed to sync Gmail. Please try again or reconnect your account.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
