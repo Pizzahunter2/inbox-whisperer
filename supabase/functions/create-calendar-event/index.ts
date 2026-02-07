@@ -105,10 +105,7 @@ serve(async (req) => {
 
     if (!title || !startTime || !endTime) {
       return new Response(
-        JSON.stringify({ 
-          error: 'Missing required fields: title, startTime, endTime',
-          details: `Received: title=${!!title}, startTime=${!!startTime}, endTime=${!!endTime}`,
-        }),
+        JSON.stringify({ error: 'Missing required fields: title, startTime, endTime' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -118,10 +115,7 @@ serve(async (req) => {
     const parsedEnd = new Date(endTime);
     if (isNaN(parsedStart.getTime()) || isNaN(parsedEnd.getTime())) {
       return new Response(
-        JSON.stringify({ 
-          error: 'Invalid date format for startTime or endTime',
-          details: `startTime="${startTime}", endTime="${endTime}" - must be valid ISO date strings`,
-        }),
+        JSON.stringify({ error: 'Invalid date format for startTime or endTime' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -203,7 +197,7 @@ serve(async (req) => {
       }
       
       return new Response(
-        JSON.stringify({ error: eventResult.error.message || 'Failed to create calendar event' }),
+        JSON.stringify({ error: 'Failed to create calendar event. Please try again.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

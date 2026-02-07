@@ -147,7 +147,7 @@ serve(async (req) => {
     if (eventsData.error) {
       console.error('Calendar API error:', eventsData.error);
       return new Response(
-        JSON.stringify({ error: 'Calendar API error', details: eventsData.error }),
+        JSON.stringify({ error: 'Failed to fetch calendar data. Please try again or reconnect your account.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

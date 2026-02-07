@@ -99,7 +99,7 @@ serve(async (req) => {
 
     const { data: { user }, error: userError } = await userClient.auth.getUser();
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized", details: "User authentication failed" }), {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -111,10 +111,7 @@ serve(async (req) => {
 
     if (!messageId || !toEmail || !subject || !replyText) {
       return new Response(
-        JSON.stringify({
-          error: "Missing required fields: messageId, toEmail, subject, replyText",
-          details: `Received: messageId=${!!messageId}, toEmail=${!!toEmail}, subject=${!!subject}, replyText=${!!replyText}`,
-        }),
+        JSON.stringify({ error: "Missing required fields: messageId, toEmail, subject, replyText" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -171,7 +168,7 @@ serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ error: sendResult.error.message || "Failed to send email" }),
+        JSON.stringify({ error: "Failed to send email. Please try again." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }

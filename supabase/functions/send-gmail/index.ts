@@ -181,7 +181,7 @@ serve(async (req) => {
       }
       
       return new Response(
-        JSON.stringify({ error: sendResult.error.message || 'Failed to send email' }),
+        JSON.stringify({ error: 'Failed to send email. Please try again.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
