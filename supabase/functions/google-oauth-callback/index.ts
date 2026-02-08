@@ -1,6 +1,26 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// --- Token encryption (AES-256-GCM) ---
+async function getEncryptionKey(): Promise<CryptoKey> {
+  const keyHex = Deno.env.get('TOKEN_ENCRYPTION_KEY');
+  if (!keyHex) throw new Error('TOKEN_ENCRYPTION_KEY not configured');
+  const keyBytes = new Uint8Array(keyHex.match(/.{2}/g)!.map(b => parseInt(b, 16)));
+  return crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, ['encrypt', 'decrypt']);
+}
+
+async function encryptToken(plaintext: string): Promise<string> {
+  const key = await getEncryptionKey();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(plaintext);
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
+  const combined = new Uint8Array(12 + new Uint8Array(ciphertext).length);
+  combined.set(iv);
+  combined.set(new Uint8Array(ciphertext), 12);
+  return btoa(String.fromCharCode(...combined));
+}
+// --- End token encryption ---
+
 async function setupGmailWatch(accessToken: string, supabaseUrl: string): Promise<{ historyId: string; expiration: string } | null> {
   try {
     const topic = Deno.env.get('GMAIL_PUBSUB_TOPIC');
@@ -120,14 +140,20 @@ serve(async (req) => {
     // Calculate token expiration
     const expiresAt = new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString();
 
+    // Encrypt tokens before storing
+    const encryptedAccess = await encryptToken(tokenData.access_token);
+    const encryptedRefresh = tokenData.refresh_token
+      ? await encryptToken(tokenData.refresh_token)
+      : null;
+
     // Update or insert connected account for gmail
     const { error: gmailError } = await supabase
       .from('connected_accounts')
       .upsert({
         user_id: stateData.userId,
         provider: 'gmail',
-        access_token_encrypted: tokenData.access_token,
-        refresh_token_encrypted: tokenData.refresh_token || null,
+        access_token_encrypted: encryptedAccess,
+        refresh_token_encrypted: encryptedRefresh,
         token_expires_at: expiresAt,
         status: 'connected',
         updated_at: new Date().toISOString(),
@@ -145,8 +171,8 @@ serve(async (req) => {
       .upsert({
         user_id: stateData.userId,
         provider: 'google_calendar',
-        access_token_encrypted: tokenData.access_token,
-        refresh_token_encrypted: tokenData.refresh_token || null,
+        access_token_encrypted: encryptedAccess,
+        refresh_token_encrypted: encryptedRefresh,
         token_expires_at: expiresAt,
         status: 'connected',
         updated_at: new Date().toISOString(),

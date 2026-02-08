@@ -32,12 +32,47 @@ interface ImageAttachment {
   filename: string;
 }
 
+// --- Token encryption (AES-256-GCM) ---
+async function getEncryptionKey(): Promise<CryptoKey> {
+  const keyHex = Deno.env.get('TOKEN_ENCRYPTION_KEY');
+  if (!keyHex) throw new Error('TOKEN_ENCRYPTION_KEY not configured');
+  const keyBytes = new Uint8Array(keyHex.match(/.{2}/g)!.map(b => parseInt(b, 16)));
+  return crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, ['encrypt', 'decrypt']);
+}
+
+async function encryptToken(plaintext: string): Promise<string> {
+  const key = await getEncryptionKey();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(plaintext);
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
+  const combined = new Uint8Array(12 + new Uint8Array(ciphertext).length);
+  combined.set(iv);
+  combined.set(new Uint8Array(ciphertext), 12);
+  return btoa(String.fromCharCode(...combined));
+}
+
+async function decryptTokenSafe(value: string | null): Promise<string | null> {
+  if (!value) return null;
+  try {
+    const key = await getEncryptionKey();
+    const combined = Uint8Array.from(atob(value), c => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const data = combined.slice(12);
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
+    return new TextDecoder().decode(decrypted);
+  } catch {
+    return value;
+  }
+}
+// --- End token encryption ---
+
 async function refreshGmailToken(supabase: any, account: any, userId: string): Promise<string | null> {
   const now = new Date();
   const expiresAt = new Date(account.token_expires_at);
 
   if (expiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
-    if (!account.refresh_token_encrypted) return null;
+    const refreshToken = await decryptTokenSafe(account.refresh_token_encrypted);
+    if (!refreshToken) return null;
 
     const clientId = Deno.env.get("GOOGLE_CLIENT_ID")!;
     const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
@@ -48,7 +83,7 @@ async function refreshGmailToken(supabase: any, account: any, userId: string): P
       body: new URLSearchParams({
         client_id: clientId,
         client_secret: clientSecret,
-        refresh_token: account.refresh_token_encrypted,
+        refresh_token: refreshToken,
         grant_type: "refresh_token",
       }),
     });
@@ -60,10 +95,12 @@ async function refreshGmailToken(supabase: any, account: any, userId: string): P
     }
 
     const newExpiresAt = new Date(Date.now() + tokenData.expires_in * 1000).toISOString();
+    const encryptedAccess = await encryptToken(tokenData.access_token);
+
     await supabase
       .from("connected_accounts")
       .update({
-        access_token_encrypted: tokenData.access_token,
+        access_token_encrypted: encryptedAccess,
         token_expires_at: newExpiresAt,
         updated_at: new Date().toISOString(),
       })
@@ -73,7 +110,7 @@ async function refreshGmailToken(supabase: any, account: any, userId: string): P
     return tokenData.access_token;
   }
 
-  return account.access_token_encrypted;
+  return await decryptTokenSafe(account.access_token_encrypted);
 }
 
 async function fetchImageAttachments(
