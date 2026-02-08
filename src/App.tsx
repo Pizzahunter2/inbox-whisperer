@@ -12,6 +12,8 @@ import History from "./pages/History";
 import Settings from "./pages/Settings";
 import Chat from "./pages/Chat";
 import NotFound from "./pages/NotFound";
+import TermsOfService from "./pages/TermsOfService";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +48,8 @@ const App = () => (
                 <Chat />
               </ProtectedRoute>
             } />
+            <Route path="/terms" element={<TermsOfService />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

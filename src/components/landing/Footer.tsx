@@ -22,6 +22,12 @@ export function Footer() {
             <Link to="/signup" className="hover:text-primary-foreground transition-colors">
               Sign Up
             </Link>
+            <Link to="/terms" className="hover:text-primary-foreground transition-colors">
+              Terms of Service
+            </Link>
+            <Link to="/privacy" className="hover:text-primary-foreground transition-colors">
+              Privacy Policy
+            </Link>
           </nav>
           
           {/* Copyright */}
