@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
+import { MobileHeader } from "@/components/dashboard/MobileHeader";
 import { EmailQueue } from "@/components/dashboard/EmailQueue";
 import { EmailDetail } from "@/components/dashboard/EmailDetail";
 import { AddEmailModal } from "@/components/dashboard/AddEmailModal";
@@ -10,6 +11,7 @@ import { DeleteOldEmailsModal } from "@/components/dashboard/DeleteOldEmailsModa
 import { useToast } from "@/hooks/use-toast";
 import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
 import { useTutorial } from "@/hooks/useTutorial";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { invokeFunctionWithRetry } from "@/lib/invokeFunctionWithRetry";
 
 export interface Message {
@@ -46,6 +48,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { startTutorial, isActive: tutorialActive } = useTutorial();
+  const isMobile = useIsMobile();
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
@@ -54,6 +57,7 @@ export default function Dashboard() {
   const [showDeleteOld, setShowDeleteOld] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [autoSelectId, setAutoSelectId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Handle realtime inserts - prepend new messages
   const handleRealtimeInsert = useCallback((newMessage: Message) => {
@@ -70,12 +74,9 @@ export default function Dashboard() {
 
   // Handle realtime updates
   const handleRealtimeUpdate = useCallback((updatedMessage: Message) => {
-    // Realtime payloads don't include joined data, so merge with existing
     setMessages((prev) =>
       prev.map((m) => (m.id === updatedMessage.id ? { ...m, ...updatedMessage } : m))
     );
-    // Don't overwrite selectedMessage from realtime - it lacks joined data
-    // The explicit fetchMessages + setSelectedMessage in handleProcessEmail handles this
   }, []);
 
   // Subscribe to realtime messages
@@ -105,12 +106,7 @@ export default function Dashboard() {
     try {
       const { data, error } = await supabase
         .from("messages")
-        .select(`
-          *,
-          classifications (*),
-          proposals (*),
-          outcomes (*)
-        `)
+        .select(`*, classifications (*), proposals (*), outcomes (*)`)
         .order("received_at", { ascending: false });
 
       if (error) throw error;
@@ -125,11 +121,7 @@ export default function Dashboard() {
       setMessages(formattedMessages);
     } catch (error: any) {
       console.error("Error fetching messages:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load messages",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to load messages", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -142,20 +134,16 @@ export default function Dashboard() {
       const { data, error } = await invokeFunctionWithRetry("process-email", {
         body: { messageId },
       });
-
       if (error) throw error;
 
-      // Fetch the freshly processed message with all joins
       const { data: msgData } = await supabase
         .from("messages")
         .select(`*, classifications (*), proposals (*), outcomes (*)`)
         .eq("id", messageId)
         .single();
 
-      // Refresh the full list
       await fetchMessages();
 
-      // Auto-select if this was an individual analyze
       if (autoSelect && msgData) {
         setSelectedMessage({
           ...msgData,
@@ -165,17 +153,10 @@ export default function Dashboard() {
         } as Message);
       }
 
-      toast({
-        title: "Email processed",
-        description: "AI has analyzed the email and generated a response.",
-      });
+      toast({ title: "Email processed", description: "AI has analyzed the email and generated a response." });
     } catch (error: any) {
       console.error("Error processing email:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to process email",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message || "Failed to process email", variant: "destructive" });
     } finally {
       setProcessingId(null);
     }
@@ -186,7 +167,6 @@ export default function Dashboard() {
       const finalAction = action as "reply" | "draft" | "schedule" | "ask_question" | "archive" | "mark_done" | "decline";
       const status = action === "archive" ? "archived" : action === "decline" ? "declined" : "sent";
       
-      // Check if outcome already exists
       const { data: existingOutcome } = await supabase
         .from("outcomes")
         .select("id")
@@ -194,7 +174,6 @@ export default function Dashboard() {
         .single();
 
       if (existingOutcome) {
-        // Update existing outcome
         const { error } = await supabase
           .from("outcomes")
           .update({
@@ -203,10 +182,8 @@ export default function Dashboard() {
             status: status as "pending" | "sent" | "drafted" | "archived" | "declined",
           })
           .eq("message_id", messageId);
-
         if (error) throw error;
       } else {
-        // Create new outcome
         const { error } = await supabase
           .from("outcomes")
           .insert([{
@@ -215,7 +192,6 @@ export default function Dashboard() {
             final_reply_text: replyText || null,
             status: status as "pending" | "sent" | "drafted" | "archived" | "declined",
           }]);
-
         if (error) throw error;
       }
 
@@ -224,19 +200,11 @@ export default function Dashboard() {
 
       toast({
         title: "Action completed",
-        description: action === "archive" 
-          ? "Email archived" 
-          : action === "decline" 
-            ? "Email declined" 
-            : "Reply sent (demo mode)",
+        description: action === "archive" ? "Email archived" : action === "decline" ? "Email declined" : "Reply sent (demo mode)",
       });
     } catch (error: any) {
       console.error("Error taking action:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to complete action",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message || "Failed to complete action", variant: "destructive" });
     }
   };
 
@@ -249,7 +217,7 @@ export default function Dashboard() {
   const completedMessages = messages.filter(m => m.outcome && m.outcome.status !== "pending");
 
   return (
-    <div className="h-screen bg-background flex overflow-hidden">
+    <div className="h-screen bg-background flex flex-col md:flex-row overflow-hidden">
       <DashboardSidebar 
         user={user}
         pendingCount={pendingMessages.length}
@@ -257,18 +225,25 @@ export default function Dashboard() {
         onSignOut={handleSignOut}
         onAddEmail={() => setShowAddEmail(true)}
         onDeleteOld={() => setShowDeleteOld(true)}
+        mobileOpen={sidebarOpen}
+        onMobileOpenChange={setSidebarOpen}
       />
+
+      <MobileHeader title="Action Queue" onOpenSidebar={() => setSidebarOpen(true)} />
       
-      <main className="flex-1 flex">
-        <EmailQueue
-          messages={pendingMessages}
-          loading={loading}
-          selectedId={selectedMessage?.id}
-          processingId={processingId}
-          onSelect={setSelectedMessage}
-          onProcess={handleProcessEmail}
-          onRefresh={fetchMessages}
-        />
+      <main className="flex-1 flex overflow-hidden">
+        {/* On mobile: show queue OR detail, not both */}
+        {(!isMobile || !selectedMessage) && (
+          <EmailQueue
+            messages={pendingMessages}
+            loading={loading}
+            selectedId={selectedMessage?.id}
+            processingId={processingId}
+            onSelect={setSelectedMessage}
+            onProcess={handleProcessEmail}
+            onRefresh={fetchMessages}
+          />
+        )}
         
         {selectedMessage && (
           <EmailDetail
@@ -293,9 +268,7 @@ export default function Dashboard() {
       <DeleteOldEmailsModal
         open={showDeleteOld}
         onClose={() => setShowDeleteOld(false)}
-        onSuccess={() => {
-          fetchMessages();
-        }}
+        onSuccess={() => fetchMessages()}
       />
     </div>
   );

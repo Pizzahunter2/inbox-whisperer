@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Message } from "@/pages/Dashboard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { invokeFunctionWithRetry } from "@/lib/invokeFunctionWithRetry";
 import {
   X,
+  ArrowLeft,
   Loader2,
   Send,
   Archive,
@@ -63,6 +65,7 @@ export function EmailDetail({
   onAction 
 }: EmailDetailProps) {
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [showFullEmail, setShowFullEmail] = useState(false);
   const [editingReply, setEditingReply] = useState(true); // Always editable
   const [replyText, setReplyText] = useState(message.proposal?.suggested_reply || "");
@@ -587,23 +590,30 @@ Best`;
   return (
     <div className="flex-1 flex flex-col bg-background h-full max-h-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-border">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center">
-            <User className="w-6 h-6 text-accent" />
+      <div className="flex items-center justify-between p-4 md:p-6 border-b border-border">
+        <div className="flex items-center gap-3 md:gap-4">
+          {isMobile && (
+            <Button variant="ghost" size="icon" onClick={onClose} className="flex-shrink-0">
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+          )}
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-accent/10 flex items-center justify-center">
+            <User className="w-5 h-5 md:w-6 md:h-6 text-accent" />
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">
+          <div className="min-w-0">
+            <h2 className="text-base md:text-lg font-semibold text-foreground truncate">
               {message.from_name || message.from_email.split("@")[0]}
             </h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground truncate">
               {message.from_email}
             </p>
           </div>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose}>
-          <X className="w-5 h-5" />
-        </Button>
+        {!isMobile && (
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="w-5 h-5" />
+          </Button>
+        )}
       </div>
 
       {/* Content */}

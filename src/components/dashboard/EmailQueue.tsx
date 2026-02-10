@@ -151,7 +151,7 @@ export function EmailQueue({
 
   if (loading) {
     return (
-      <div className="w-[480px] border-r border-border p-6 flex items-center justify-center">
+      <div className="w-full md:w-[480px] border-r border-border p-6 flex items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-accent" />
       </div>
     );
@@ -160,15 +160,16 @@ export function EmailQueue({
   const hasActiveFilters = activeTagFilters.length > 0 || searchQuery.trim().length > 0;
 
   return (
-    <div className="w-[480px] border-r border-border flex flex-col">
+    <div className="w-full md:w-[480px] border-r border-border flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-border space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-foreground">Action Queue</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="sm" disabled={bulkAnalyzing} onClick={handleBulkAnalyze}>
               {bulkAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              Analyze All
+              <span className="hidden sm:inline">Analyze All</span>
+              <span className="sm:hidden">All</span>
             </Button>
             {bulkAnalyzing && (
               <Button variant="destructive" size="sm" onClick={handleStopBulk}>

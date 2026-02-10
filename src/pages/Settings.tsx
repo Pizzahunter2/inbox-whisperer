@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
+import { MobileHeader } from "@/components/dashboard/MobileHeader";
 import { ConnectedAccounts } from "@/components/settings/ConnectedAccounts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,6 +61,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -105,16 +107,9 @@ export default function Settings() {
 
       if (error) throw error;
 
-      toast({
-        title: "Settings saved",
-        description: "Your preferences have been updated.",
-      });
+      toast({ title: "Settings saved", description: "Your preferences have been updated." });
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save settings",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message || "Failed to save settings", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -127,10 +122,7 @@ export default function Settings() {
         .select("*, classifications(*), proposals(*), outcomes(*)");
 
       const exportData = {
-        user: {
-          email: user?.email,
-          created_at: user?.created_at,
-        },
+        user: { email: user?.email, created_at: user?.created_at },
         profile,
         messages,
         exported_at: new Date().toISOString(),
@@ -144,16 +136,9 @@ export default function Settings() {
       a.click();
       URL.revokeObjectURL(url);
 
-      toast({
-        title: "Data exported",
-        description: "Your data has been downloaded as JSON.",
-      });
+      toast({ title: "Data exported", description: "Your data has been downloaded as JSON." });
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: "Failed to export data",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to export data", variant: "destructive" });
     }
   };
 
@@ -165,16 +150,9 @@ export default function Settings() {
       
       await signOut();
       navigate("/");
-      toast({
-        title: "Account deleted",
-        description: "Your account and all data have been permanently deleted.",
-      });
+      toast({ title: "Account deleted", description: "Your account and all data have been permanently deleted." });
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete account",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message || "Failed to delete account", variant: "destructive" });
     } finally {
       setDeleting(false);
     }
@@ -194,7 +172,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background flex flex-col md:flex-row">
       <DashboardSidebar 
         user={user}
         pendingCount={0}
@@ -202,10 +180,14 @@ export default function Settings() {
         onSignOut={handleSignOut}
         onAddEmail={() => navigate("/dashboard")}
         onDeleteOld={() => navigate("/dashboard")}
+        mobileOpen={sidebarOpen}
+        onMobileOpenChange={setSidebarOpen}
       />
+
+      <MobileHeader title="Settings" onOpenSidebar={() => setSidebarOpen(true)} />
       
       <main className="flex-1 overflow-auto">
-        <div className="max-w-3xl mx-auto p-6 pb-12">
+        <div className="max-w-3xl mx-auto p-4 md:p-6 pb-12">
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-foreground">Settings</h1>
             <p className="text-muted-foreground">Manage your preferences and account</p>
@@ -221,9 +203,7 @@ export default function Settings() {
             <Card>
               <CardHeader>
                 <CardTitle>Reply Preferences</CardTitle>
-                <CardDescription>
-                  Customize how AI-generated replies should sound
-                </CardDescription>
+                <CardDescription>Customize how AI-generated replies should sound</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -242,7 +222,6 @@ export default function Settings() {
                     </SelectContent>
                   </Select>
                 </div>
-
                 <div className="space-y-2">
                   <Label>Default Signature</Label>
                   <Textarea
@@ -260,63 +239,35 @@ export default function Settings() {
             <Card>
               <CardHeader>
                 <CardTitle>Working Hours</CardTitle>
-                <CardDescription>
-                  Used for meeting slot suggestions
-                </CardDescription>
+                <CardDescription>Used for meeting slot suggestions</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Start Time</Label>
-                    <Input
-                      type="time"
-                      value={profile.working_hours_start}
-                      onChange={(e) => setProfile({ ...profile, working_hours_start: e.target.value })}
-                    />
+                    <Input type="time" value={profile.working_hours_start} onChange={(e) => setProfile({ ...profile, working_hours_start: e.target.value })} />
                   </div>
                   <div className="space-y-2">
                     <Label>End Time</Label>
-                    <Input
-                      type="time"
-                      value={profile.working_hours_end}
-                      onChange={(e) => setProfile({ ...profile, working_hours_end: e.target.value })}
-                    />
+                    <Input type="time" value={profile.working_hours_end} onChange={(e) => setProfile({ ...profile, working_hours_end: e.target.value })} />
                   </div>
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Minimum Meeting Notice (hours)</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={profile.meeting_min_notice_hours}
-                      onChange={(e) => setProfile({ ...profile, meeting_min_notice_hours: parseInt(e.target.value) || 24 })}
-                    />
+                    <Input type="number" min={1} value={profile.meeting_min_notice_hours} onChange={(e) => setProfile({ ...profile, meeting_min_notice_hours: parseInt(e.target.value) || 24 })} />
                   </div>
                   <div className="space-y-2">
                     <Label>Default Meeting Duration (min)</Label>
-                    <Input
-                      type="number"
-                      min={15}
-                      step={15}
-                      value={profile.meeting_default_duration}
-                      onChange={(e) => setProfile({ ...profile, meeting_default_duration: parseInt(e.target.value) || 30 })}
-                    />
+                    <Input type="number" min={15} step={15} value={profile.meeting_default_duration} onChange={(e) => setProfile({ ...profile, meeting_default_duration: parseInt(e.target.value) || 30 })} />
                   </div>
                 </div>
-
                 <div className="flex items-center justify-between py-2">
                   <div>
                     <Label>Auto-suggest Time Slots</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Automatically suggest available times for meeting requests
-                    </p>
+                    <p className="text-sm text-muted-foreground">Automatically suggest available times for meeting requests</p>
                   </div>
-                  <Switch
-                    checked={profile.auto_suggest_slots}
-                    onCheckedChange={(checked) => setProfile({ ...profile, auto_suggest_slots: checked })}
-                  />
+                  <Switch checked={profile.auto_suggest_slots} onCheckedChange={(checked) => setProfile({ ...profile, auto_suggest_slots: checked })} />
                 </div>
               </CardContent>
             </Card>
@@ -325,54 +276,30 @@ export default function Settings() {
             <Card>
               <CardHeader>
                 <CardTitle>Automation Rules</CardTitle>
-                <CardDescription>
-                  Configure automatic actions for certain email types
-                </CardDescription>
+                <CardDescription>Configure automatic actions for certain email types</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between py-2">
                   <div>
                     <Label>Auto-archive Newsletters</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Automatically archive emails detected as newsletters
-                    </p>
+                    <p className="text-sm text-muted-foreground">Automatically archive emails detected as newsletters</p>
                   </div>
-                  <Switch
-                    checked={profile.auto_archive_newsletters}
-                    onCheckedChange={(checked) => setProfile({ ...profile, auto_archive_newsletters: checked })}
-                  />
+                  <Switch checked={profile.auto_archive_newsletters} onCheckedChange={(checked) => setProfile({ ...profile, auto_archive_newsletters: checked })} />
                 </div>
-
                 <div className="flex items-center justify-between py-2">
                   <div>
                     <Label>Flag Invoices</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Highlight emails that contain invoices or payment requests
-                    </p>
+                    <p className="text-sm text-muted-foreground">Highlight emails that contain invoices or payment requests</p>
                   </div>
-                  <Switch
-                    checked={profile.flag_invoices}
-                    onCheckedChange={(checked) => setProfile({ ...profile, flag_invoices: checked })}
-                  />
+                  <Switch checked={profile.flag_invoices} onCheckedChange={(checked) => setProfile({ ...profile, flag_invoices: checked })} />
                 </div>
-
               </CardContent>
             </Card>
 
             {/* Save button */}
             <div className="flex justify-end">
               <Button variant="action" onClick={handleSave} disabled={saving}>
-                {saving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    Save Changes
-                  </>
-                )}
+                {saving ? (<><Loader2 className="w-4 h-4 animate-spin" />Saving...</>) : (<><Save className="w-4 h-4" />Save Changes</>)}
               </Button>
             </div>
 
@@ -380,9 +307,7 @@ export default function Settings() {
             <Card>
               <CardHeader>
                 <CardTitle>Data Management</CardTitle>
-                <CardDescription>
-                  Export or delete your data
-                </CardDescription>
+                <CardDescription>Export or delete your data</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <Button variant="outline" onClick={handleExportData}>
@@ -399,25 +324,13 @@ export default function Settings() {
                   <AlertTriangle className="w-5 h-5" />
                   Danger Zone
                 </CardTitle>
-                <CardDescription>
-                  Irreversible actions
-                </CardDescription>
+                <CardDescription>Irreversible actions</CardDescription>
               </CardHeader>
               <CardContent>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive" disabled={deleting}>
-                      {deleting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Deleting...
-                        </>
-                      ) : (
-                        <>
-                          <Trash2 className="w-4 h-4" />
-                          Delete Account
-                        </>
-                      )}
+                      {deleting ? (<><Loader2 className="w-4 h-4 animate-spin" />Deleting...</>) : (<><Trash2 className="w-4 h-4" />Delete Account</>)}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
@@ -439,9 +352,7 @@ export default function Settings() {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-                <p className="text-xs text-muted-foreground mt-2">
-                  This will permanently delete your account and all associated data.
-                </p>
+                <p className="text-xs text-muted-foreground mt-2">This will permanently delete your account and all associated data.</p>
               </CardContent>
             </Card>
 
@@ -452,9 +363,7 @@ export default function Settings() {
                   <PlayCircle className="w-5 h-5" />
                   App Tutorial
                 </CardTitle>
-                <CardDescription>
-                  Learn about all the features of Inbox Pilot
-                </CardDescription>
+                <CardDescription>Learn about all the features of Inbox Pilot</CardDescription>
               </CardHeader>
               <CardContent>
                 <Button variant="outline" onClick={startTutorial} className="gap-2">

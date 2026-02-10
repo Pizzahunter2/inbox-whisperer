@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
+import { MobileHeader } from "@/components/dashboard/MobileHeader";
 import { AddEmailModal } from "@/components/dashboard/AddEmailModal";
 import { DeleteOldEmailsModal } from "@/components/dashboard/DeleteOldEmailsModal";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ export default function Chat() {
   const [showAddEmail, setShowAddEmail] = useState(false);
   const [showDeleteOld, setShowDeleteOld] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesRef = useRef<ChatMessage[]>([]);
@@ -194,7 +196,7 @@ export default function Chat() {
   };
 
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className="min-h-screen flex flex-col md:flex-row bg-background">
       <DashboardSidebar
         user={user}
         pendingCount={0}
@@ -202,11 +204,15 @@ export default function Chat() {
         onSignOut={signOut}
         onAddEmail={() => setShowAddEmail(true)}
         onDeleteOld={() => setShowDeleteOld(true)}
+        mobileOpen={sidebarOpen}
+        onMobileOpenChange={setSidebarOpen}
       />
 
-      <div className="flex-1 flex flex-col h-screen">
-        {/* Header */}
-        <div className="border-b border-border px-6 py-4 flex items-center gap-3">
+      <MobileHeader title="Inbox Chat" onOpenSidebar={() => setSidebarOpen(true)} />
+
+      <div className="flex-1 flex flex-col h-[calc(100vh-49px)] md:h-screen">
+        {/* Header - hidden on mobile since MobileHeader covers it */}
+        <div className="hidden md:flex border-b border-border px-6 py-4 items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
             <MessageSquare className="w-5 h-5 text-accent" />
           </div>
@@ -217,7 +223,7 @@ export default function Chat() {
         </div>
 
         {/* Messages */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-4">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mb-4">
@@ -269,7 +275,7 @@ export default function Chat() {
                   </div>
                 )}
                 <div
-                  className={`max-w-[70%] rounded-xl px-4 py-3 ${
+                  className={`max-w-[85%] md:max-w-[70%] rounded-xl px-4 py-3 ${
                     msg.role === "user"
                       ? "bg-accent text-accent-foreground"
                       : "bg-muted/50 text-foreground"
@@ -318,7 +324,7 @@ export default function Chat() {
         </div>
 
         {/* Input */}
-        <div className="border-t border-border px-6 py-4">
+        <div className="border-t border-border px-4 md:px-6 py-4">
           <div className="flex gap-3 items-end max-w-4xl mx-auto">
             <Textarea
               ref={textareaRef}
