@@ -135,7 +135,7 @@ export default function Dashboard() {
     }
   };
 
-  const handleProcessEmail = async (messageId: string) => {
+  const handleProcessEmail = async (messageId: string, autoSelect = true) => {
     setProcessingId(messageId);
     try {
       const { data, error } = await invokeFunctionWithRetry("process-email", {
@@ -146,8 +146,22 @@ export default function Dashboard() {
 
       await fetchMessages();
       
-      // Update selected message if it's the one we just processed
-      if (selectedMessage?.id === messageId) {
+      // Auto-select the processed message (only for individual analyze)
+      if (autoSelect) {
+        const { data: msgData } = await supabase
+          .from("messages")
+          .select(`*, classifications (*), proposals (*), outcomes (*)`)
+          .eq("id", messageId)
+          .single();
+        if (msgData) {
+          setSelectedMessage({
+            ...msgData,
+            classification: msgData.classifications?.[0] || msgData.classifications,
+            proposal: msgData.proposals?.[0] || msgData.proposals,
+            outcome: msgData.outcomes?.[0] || msgData.outcomes,
+          } as Message);
+        }
+      } else if (selectedMessage?.id === messageId) {
         const updated = messages.find(m => m.id === messageId);
         if (updated) setSelectedMessage(updated);
       }

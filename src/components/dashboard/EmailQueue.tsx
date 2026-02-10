@@ -29,7 +29,7 @@ interface EmailQueueProps {
   selectedId?: string;
   processingId: string | null;
   onSelect: (message: Message) => void;
-  onProcess: (messageId: string) => void;
+  onProcess: (messageId: string, autoSelect?: boolean) => void;
   onRefresh?: () => void;
 }
 
@@ -107,7 +107,7 @@ export function EmailQueue({
       // Check stop flag before starting next email
       if (stopBulkRef.current) break;
       try {
-        onProcess(msg.id);
+        onProcess(msg.id, false);
         success++;
         await new Promise((r) => setTimeout(r, 1500));
       } catch {
