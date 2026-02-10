@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
+import { MobileHeader } from "@/components/dashboard/MobileHeader";
 import { AddEmailModal } from "@/components/dashboard/AddEmailModal";
 import { DeleteOldEmailsModal } from "@/components/dashboard/DeleteOldEmailsModal";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,6 @@ export default function Compose() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Initialize from navigation state (passed from Chat)
   const initialDraft = (location.state as any)?.draft as DraftState | undefined;
 
   const [draft, setDraft] = useState<DraftState>({
@@ -44,6 +44,7 @@ export default function Compose() {
   const [isSuggestingTimes, setIsSuggestingTimes] = useState(false);
   const [showAddEmail, setShowAddEmail] = useState(false);
   const [showDeleteOld, setShowDeleteOld] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const instructionRef = useRef<HTMLInputElement>(null);
 
   const handleRefineDraft = async () => {
@@ -199,7 +200,7 @@ export default function Compose() {
   };
 
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className="min-h-screen flex flex-col md:flex-row bg-background">
       <DashboardSidebar
         user={user}
         pendingCount={0}
@@ -207,11 +208,15 @@ export default function Compose() {
         onSignOut={signOut}
         onAddEmail={() => setShowAddEmail(true)}
         onDeleteOld={() => setShowDeleteOld(true)}
+        mobileOpen={sidebarOpen}
+        onMobileOpenChange={setSidebarOpen}
       />
 
-      <div className="flex-1 flex flex-col h-screen">
-        {/* Header */}
-        <div className="border-b border-border px-6 py-4 flex items-center gap-3">
+      <MobileHeader title="Compose" onOpenSidebar={() => setSidebarOpen(true)} />
+
+      <div className="flex-1 flex flex-col h-[calc(100vh-49px)] md:h-screen">
+        {/* Header - hidden on mobile */}
+        <div className="hidden md:flex border-b border-border px-6 py-4 items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate("/chat")}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
@@ -225,7 +230,7 @@ export default function Compose() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
+          <div className="max-w-3xl mx-auto px-4 md:px-6 py-6 space-y-6">
             {/* Email fields */}
             <div className="space-y-4">
               <div>
@@ -251,8 +256,8 @@ export default function Compose() {
                   placeholder="Write your email here or let AI draft it..."
                   value={draft.body}
                   onChange={(e) => setDraft((d) => ({ ...d, body: e.target.value }))}
-                  className="min-h-[250px]"
-                  rows={12}
+                  className="min-h-[200px] md:min-h-[250px]"
+                  rows={10}
                 />
               </div>
             </div>
@@ -266,7 +271,7 @@ export default function Compose() {
               <div className="flex gap-2">
                 <Input
                   ref={instructionRef}
-                  placeholder="e.g. Make it more formal, add a greeting, shorten it..."
+                  placeholder="e.g. Make it more formal..."
                   value={aiInstruction}
                   onChange={(e) => setAiInstruction(e.target.value)}
                   onKeyDown={handleInstructionKeyDown}
@@ -279,7 +284,7 @@ export default function Compose() {
                   className="flex-shrink-0"
                 >
                   {isRefining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  <span className="ml-1.5">Refine</span>
+                  <span className="ml-1.5 hidden sm:inline">Refine</span>
                 </Button>
               </div>
               <Button
@@ -290,7 +295,8 @@ export default function Compose() {
                 className="gap-1.5"
               >
                 {isSuggestingTimes ? <Loader2 className="w-4 h-4 animate-spin" /> : <CalendarClock className="w-4 h-4" />}
-                Suggest Meeting Times
+                <span className="hidden sm:inline">Suggest Meeting Times</span>
+                <span className="sm:hidden">Meeting Times</span>
               </Button>
             </div>
 

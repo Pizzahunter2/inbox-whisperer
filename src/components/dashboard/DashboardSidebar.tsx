@@ -13,6 +13,11 @@ import {
   PenLine
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  Sheet,
+  SheetContent,
+} from "@/components/ui/sheet";
 
 interface DashboardSidebarProps {
   user: User | null;
@@ -21,58 +26,33 @@ interface DashboardSidebarProps {
   onSignOut: () => void;
   onAddEmail: () => void;
   onDeleteOld: () => void;
+  mobileOpen?: boolean;
+  onMobileOpenChange?: (open: boolean) => void;
 }
 
-export function DashboardSidebar({ 
+function SidebarContent({ 
   user, 
   pendingCount, 
   completedCount,
   onSignOut,
-  onAddEmail,
-  onDeleteOld
-}: DashboardSidebarProps) {
+  onDeleteOld,
+  onLinkClick,
+}: Omit<DashboardSidebarProps, 'onAddEmail' | 'mobileOpen' | 'onMobileOpenChange'> & { onLinkClick?: () => void }) {
   const location = useLocation();
   
   const navItems = [
-    { 
-      icon: Inbox, 
-      label: "Action Queue", 
-      href: "/dashboard", 
-      count: pendingCount,
-      active: location.pathname === "/dashboard" 
-    },
-    { 
-      icon: CheckCircle, 
-      label: "History", 
-      href: "/history", 
-      count: completedCount,
-      active: location.pathname === "/history" 
-    },
-    {
-      icon: MessageSquare,
-      label: "Inbox Chat",
-      href: "/chat",
-      active: location.pathname === "/chat"
-    },
-    {
-      icon: PenLine,
-      label: "Compose",
-      href: "/compose",
-      active: location.pathname === "/compose"
-    },
-    { 
-      icon: Settings, 
-      label: "Settings", 
-      href: "/settings",
-      active: location.pathname === "/settings" 
-    },
+    { icon: Inbox, label: "Action Queue", href: "/dashboard", count: pendingCount, active: location.pathname === "/dashboard" },
+    { icon: CheckCircle, label: "History", href: "/history", count: completedCount, active: location.pathname === "/history" },
+    { icon: MessageSquare, label: "Inbox Chat", href: "/chat", active: location.pathname === "/chat" },
+    { icon: PenLine, label: "Compose", href: "/compose", active: location.pathname === "/compose" },
+    { icon: Settings, label: "Settings", href: "/settings", active: location.pathname === "/settings" },
   ];
 
   return (
-    <aside className="w-64 bg-sidebar text-sidebar-foreground flex flex-col border-r border-sidebar-border">
+    <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="p-6 border-b border-sidebar-border">
-        <Link to="/dashboard" className="flex items-center gap-2">
+        <Link to="/dashboard" className="flex items-center gap-2" onClick={onLinkClick}>
           <div className="w-9 h-9 rounded-lg bg-sidebar-primary flex items-center justify-center">
             <Mail className="w-5 h-5 text-sidebar-primary-foreground" />
           </div>
@@ -85,7 +65,7 @@ export function DashboardSidebar({
         <Button 
           variant="outline" 
           className="w-full justify-start gap-2 text-destructive hover:text-destructive"
-          onClick={onDeleteOld}
+          onClick={() => { onDeleteOld(); onLinkClick?.(); }}
         >
           <Trash2 className="w-4 h-4" />
           Delete Old Emails
@@ -99,6 +79,7 @@ export function DashboardSidebar({
             <li key={item.href}>
               <Link
                 to={item.href}
+                onClick={onLinkClick}
                 className={`flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${
                   item.active 
                     ? "bg-sidebar-accent text-sidebar-accent-foreground" 
@@ -142,13 +123,54 @@ export function DashboardSidebar({
           variant="ghost" 
           size="sm"
           className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-          onClick={onSignOut}
+          onClick={() => { onSignOut(); onLinkClick?.(); }}
         >
           <LogOut className="w-4 h-4" />
           Sign Out
         </Button>
-
       </div>
+    </div>
+  );
+}
+
+export function DashboardSidebar({ 
+  user, 
+  pendingCount, 
+  completedCount,
+  onSignOut,
+  onAddEmail,
+  onDeleteOld,
+  mobileOpen,
+  onMobileOpenChange,
+}: DashboardSidebarProps) {
+  const isMobile = useIsMobile();
+
+  if (isMobile) {
+    return (
+      <Sheet open={mobileOpen} onOpenChange={onMobileOpenChange}>
+        <SheetContent side="left" className="p-0 w-64 bg-sidebar text-sidebar-foreground">
+          <SidebarContent
+            user={user}
+            pendingCount={pendingCount}
+            completedCount={completedCount}
+            onSignOut={onSignOut}
+            onDeleteOld={onDeleteOld}
+            onLinkClick={() => onMobileOpenChange?.(false)}
+          />
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  return (
+    <aside className="w-64 bg-sidebar text-sidebar-foreground flex flex-col border-r border-sidebar-border">
+      <SidebarContent
+        user={user}
+        pendingCount={pendingCount}
+        completedCount={completedCount}
+        onSignOut={onSignOut}
+        onDeleteOld={onDeleteOld}
+      />
     </aside>
   );
 }
