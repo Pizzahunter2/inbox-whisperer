@@ -9,7 +9,8 @@ import {
   Plus,
   Clock,
   Trash2,
-  MessageSquare
+  MessageSquare,
+  PenLine
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -52,6 +53,12 @@ export function DashboardSidebar({
       label: "Inbox Chat",
       href: "/chat",
       active: location.pathname === "/chat"
+    },
+    {
+      icon: PenLine,
+      label: "Compose",
+      href: "/compose",
+      active: location.pathname === "/compose"
     },
     { 
       icon: Settings, 
