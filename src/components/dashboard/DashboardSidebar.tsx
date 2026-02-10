@@ -10,7 +10,8 @@ import {
   Clock,
   Trash2,
   MessageSquare,
-  PenLine
+  PenLine,
+  Crown
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -45,6 +46,7 @@ function SidebarContent({
     { icon: CheckCircle, label: "History", href: "/history", count: completedCount, active: location.pathname === "/history" },
     { icon: MessageSquare, label: "Inbox Chat", href: "/chat", active: location.pathname === "/chat" },
     { icon: PenLine, label: "Compose", href: "/compose", active: location.pathname === "/compose" },
+    { icon: Crown, label: "Pricing", href: "/pricing", active: location.pathname === "/pricing" },
     { icon: Settings, label: "Settings", href: "/settings", active: location.pathname === "/settings" },
   ];
 
