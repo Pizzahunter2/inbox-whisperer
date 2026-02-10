@@ -9,6 +9,7 @@ import { AddEmailModal } from "@/components/dashboard/AddEmailModal";
 import { DeleteOldEmailsModal } from "@/components/dashboard/DeleteOldEmailsModal";
 import { useToast } from "@/hooks/use-toast";
 import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
+import { useTutorial } from "@/hooks/useTutorial";
 import { invokeFunctionWithRetry } from "@/lib/invokeFunctionWithRetry";
 
 export interface Message {
@@ -44,6 +45,7 @@ export default function Dashboard() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { startTutorial, isActive: tutorialActive } = useTutorial();
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
@@ -86,6 +88,18 @@ export default function Dashboard() {
   useEffect(() => {
     fetchMessages();
   }, []);
+
+  // Auto-trigger tutorial for new users
+  useEffect(() => {
+    if (user && !tutorialActive) {
+      const seen = localStorage.getItem(`tutorial_seen_${user.id}`);
+      if (!seen) {
+        // Small delay to let the page render first
+        const timer = setTimeout(() => startTutorial(), 800);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [user?.id]);
 
   const fetchMessages = async () => {
     try {
