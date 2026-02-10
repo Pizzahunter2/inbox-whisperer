@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { MobileHeader } from "@/components/dashboard/MobileHeader";
@@ -12,9 +13,10 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useTutorial } from "@/hooks/useTutorial";
-import { Loader2, Save, Download, Trash2, AlertTriangle, PlayCircle } from "lucide-react";
+import { Loader2, Save, Download, Trash2, AlertTriangle, PlayCircle, Crown } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,6 +44,7 @@ interface Profile {
 
 export default function Settings() {
   const { user, signOut } = useAuth();
+  const { subscribed, planName, subscriptionEnd } = useSubscription();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { startTutorial } = useTutorial();
@@ -194,6 +197,34 @@ export default function Settings() {
           </div>
 
           <div className="space-y-6">
+            {/* Subscription */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Crown className="w-5 h-5 text-accent" />
+                  Subscription
+                </CardTitle>
+                <CardDescription>Manage your plan</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Current plan:</span>
+                  <Badge variant={subscribed ? "default" : "secondary"}>
+                    {planName}
+                  </Badge>
+                </div>
+                {subscriptionEnd && (
+                  <p className="text-sm text-muted-foreground">
+                    Renews: {new Date(subscriptionEnd).toLocaleDateString()}
+                  </p>
+                )}
+                <Button variant="outline" onClick={() => navigate("/pricing")} className="gap-2">
+                  <Crown className="w-4 h-4" />
+                  {subscribed ? "Manage Plan" : "Upgrade to Pro"}
+                </Button>
+              </CardContent>
+            </Card>
+
             {/* Connected Accounts */}
             <div data-tutorial="connected-accounts">
               <ConnectedAccounts />
