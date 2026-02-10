@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useTutorial } from "@/hooks/useTutorial";
 import { Button } from "@/components/ui/button";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
@@ -5,11 +6,24 @@ import { X, ChevronLeft, ChevronRight } from "lucide-react";
 export function TutorialOverlay() {
   const { isActive, step, currentStep, totalSteps, nextStep, prevStep, endTutorial } = useTutorial();
 
+  // Scroll to the target element when step changes
+  useEffect(() => {
+    if (!isActive || !step?.targetSelector) return;
+
+    const timeout = setTimeout(() => {
+      const el = document.querySelector(step.targetSelector!);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 400);
+
+    return () => clearTimeout(timeout);
+  }, [isActive, currentStep, step?.targetSelector]);
+
   if (!isActive || !step) return null;
 
   return (
     <div className="fixed bottom-4 left-4 z-[9999] bg-card border border-border rounded-xl shadow-2xl p-5 max-w-sm w-[90vw] animate-fade-in">
-      {/* Close */}
       <button
         onClick={endTutorial}
         className="absolute top-3 right-3 text-muted-foreground hover:text-foreground transition-colors"
@@ -17,7 +31,6 @@ export function TutorialOverlay() {
         <X className="w-4 h-4" />
       </button>
 
-      {/* Progress */}
       <div className="flex gap-1 mb-3">
         {Array.from({ length: totalSteps }).map((_, i) => (
           <div
@@ -32,7 +45,6 @@ export function TutorialOverlay() {
       <h3 className="text-base font-semibold text-foreground mb-1.5">{step.title}</h3>
       <p className="text-sm text-muted-foreground leading-relaxed mb-4">{step.description}</p>
 
-      {/* Navigation */}
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">
           {currentStep + 1} / {totalSteps}
