@@ -11,6 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import History from "./pages/History";
 import Settings from "./pages/Settings";
 import Chat from "./pages/Chat";
+import Compose from "./pages/Compose";
 import NotFound from "./pages/NotFound";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -46,6 +47,11 @@ const App = () => (
             <Route path="/chat" element={
               <ProtectedRoute>
                 <Chat />
+              </ProtectedRoute>
+            } />
+            <Route path="/compose" element={
+              <ProtectedRoute>
+                <Compose />
               </ProtectedRoute>
             } />
             <Route path="/terms" element={<TermsOfService />} />

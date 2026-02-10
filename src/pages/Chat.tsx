@@ -7,7 +7,8 @@ import { DeleteOldEmailsModal } from "@/components/dashboard/DeleteOldEmailsModa
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Loader2, MessageSquare, Bot, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Send, Loader2, MessageSquare, Bot, User, PenLine } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -17,6 +18,7 @@ const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-inbox`;
 export default function Chat() {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -244,35 +246,64 @@ export default function Chat() {
             </div>
           )}
 
-          {messages.map((msg, i) => (
-            <div key={i} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
-              {msg.role === "assistant" && (
-                <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0 mt-1">
-                  <Bot className="w-4 h-4 text-accent" />
-                </div>
-              )}
-              <div
-                className={`max-w-[70%] rounded-xl px-4 py-3 ${
-                  msg.role === "user"
-                    ? "bg-accent text-accent-foreground"
-                    : "bg-muted/50 text-foreground"
-                }`}
-              >
-                {msg.role === "assistant" ? (
-                  <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+          {messages.map((msg, i) => {
+            // Parse compose blocks from assistant messages
+            let displayContent = msg.content;
+            let composeDraft: { to: string; subject: string; body: string } | null = null;
+
+            if (msg.role === "assistant") {
+              const composeMatch = msg.content.match(/:::COMPOSE:::\s*(\{[\s\S]*?\})\s*:::COMPOSE:::/);
+              if (composeMatch) {
+                try {
+                  composeDraft = JSON.parse(composeMatch[1]);
+                  displayContent = msg.content.replace(/:::COMPOSE:::[\s\S]*?:::COMPOSE:::/, "").trim();
+                } catch { /* ignore parse error */ }
+              }
+            }
+
+            return (
+              <div key={i} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
+                {msg.role === "assistant" && (
+                  <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0 mt-1">
+                    <Bot className="w-4 h-4 text-accent" />
                   </div>
-                ) : (
-                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                )}
+                <div
+                  className={`max-w-[70%] rounded-xl px-4 py-3 ${
+                    msg.role === "user"
+                      ? "bg-accent text-accent-foreground"
+                      : "bg-muted/50 text-foreground"
+                  }`}
+                >
+                  {msg.role === "assistant" ? (
+                    <>
+                      <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                        <ReactMarkdown>{displayContent}</ReactMarkdown>
+                      </div>
+                      {composeDraft && (
+                        <Button
+                          variant="action"
+                          size="sm"
+                          className="mt-3 gap-1.5"
+                          onClick={() => navigate("/compose", { state: { draft: composeDraft } })}
+                        >
+                          <PenLine className="w-3.5 h-3.5" />
+                          Open in Composer
+                        </Button>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  )}
+                </div>
+                {msg.role === "user" && (
+                  <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center flex-shrink-0 mt-1">
+                    <User className="w-4 h-4 text-accent-foreground" />
+                  </div>
                 )}
               </div>
-              {msg.role === "user" && (
-                <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center flex-shrink-0 mt-1">
-                  <User className="w-4 h-4 text-accent-foreground" />
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
 
           {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
             <div className="flex gap-3">

@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.gmail-webhook]
 verify_jwt = false
+
+[functions.send-new-email]
+verify_jwt = false
+
+[functions.refine-draft]
+verify_jwt = false
