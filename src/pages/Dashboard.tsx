@@ -53,6 +53,7 @@ export default function Dashboard() {
   const [showAddEmail, setShowAddEmail] = useState(false);
   const [showDeleteOld, setShowDeleteOld] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [autoSelectId, setAutoSelectId] = useState<string | null>(null);
 
   // Handle realtime inserts - prepend new messages
   const handleRealtimeInsert = useCallback((newMessage: Message) => {
@@ -69,13 +70,12 @@ export default function Dashboard() {
 
   // Handle realtime updates
   const handleRealtimeUpdate = useCallback((updatedMessage: Message) => {
+    // Realtime payloads don't include joined data, so merge with existing
     setMessages((prev) =>
-      prev.map((m) => (m.id === updatedMessage.id ? updatedMessage : m))
+      prev.map((m) => (m.id === updatedMessage.id ? { ...m, ...updatedMessage } : m))
     );
-    // Also update selected message if it's the one that was updated
-    setSelectedMessage((prev) =>
-      prev?.id === updatedMessage.id ? updatedMessage : prev
-    );
+    // Don't overwrite selectedMessage from realtime - it lacks joined data
+    // The explicit fetchMessages + setSelectedMessage in handleProcessEmail handles this
   }, []);
 
   // Subscribe to realtime messages
@@ -137,6 +137,7 @@ export default function Dashboard() {
 
   const handleProcessEmail = async (messageId: string, autoSelect = true) => {
     setProcessingId(messageId);
+    if (autoSelect) setAutoSelectId(messageId);
     try {
       const { data, error } = await invokeFunctionWithRetry("process-email", {
         body: { messageId },
@@ -144,26 +145,24 @@ export default function Dashboard() {
 
       if (error) throw error;
 
+      // Fetch the freshly processed message with all joins
+      const { data: msgData } = await supabase
+        .from("messages")
+        .select(`*, classifications (*), proposals (*), outcomes (*)`)
+        .eq("id", messageId)
+        .single();
+
+      // Refresh the full list
       await fetchMessages();
-      
-      // Auto-select the processed message (only for individual analyze)
-      if (autoSelect) {
-        const { data: msgData } = await supabase
-          .from("messages")
-          .select(`*, classifications (*), proposals (*), outcomes (*)`)
-          .eq("id", messageId)
-          .single();
-        if (msgData) {
-          setSelectedMessage({
-            ...msgData,
-            classification: msgData.classifications?.[0] || msgData.classifications,
-            proposal: msgData.proposals?.[0] || msgData.proposals,
-            outcome: msgData.outcomes?.[0] || msgData.outcomes,
-          } as Message);
-        }
-      } else if (selectedMessage?.id === messageId) {
-        const updated = messages.find(m => m.id === messageId);
-        if (updated) setSelectedMessage(updated);
+
+      // Auto-select if this was an individual analyze
+      if (autoSelect && msgData) {
+        setSelectedMessage({
+          ...msgData,
+          classification: msgData.classifications?.[0] || msgData.classifications,
+          proposal: msgData.proposals?.[0] || msgData.proposals,
+          outcome: msgData.outcomes?.[0] || msgData.outcomes,
+        } as Message);
       }
 
       toast({
