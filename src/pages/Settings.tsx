@@ -14,6 +14,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { useTutorial } from "@/hooks/useTutorial";
 import { Loader2, Save, Download, Trash2, AlertTriangle, PlayCircle } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface Profile {
   reply_tone: "neutral" | "friendly" | "formal";
@@ -26,7 +37,6 @@ interface Profile {
   auto_suggest_slots: boolean;
   auto_archive_newsletters: boolean;
   flag_invoices: boolean;
-  demo_mode: boolean;
 }
 
 export default function Settings() {
@@ -46,10 +56,10 @@ export default function Settings() {
     auto_suggest_slots: true,
     auto_archive_newsletters: false,
     flag_invoices: true,
-    demo_mode: true,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -76,7 +86,6 @@ export default function Settings() {
           auto_suggest_slots: data.auto_suggest_slots ?? true,
           auto_archive_newsletters: data.auto_archive_newsletters ?? false,
           flag_invoices: data.flag_invoices ?? true,
-          demo_mode: data.demo_mode ?? true,
         });
       }
     } catch (error) {
@@ -145,6 +154,29 @@ export default function Settings() {
         description: "Failed to export data",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      const response = await supabase.functions.invoke("delete-account");
+      if (response.error) throw new Error(response.error.message);
+      
+      await signOut();
+      navigate("/");
+      toast({
+        title: "Account deleted",
+        description: "Your account and all data have been permanently deleted.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete account",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -372,12 +404,43 @@ export default function Settings() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Button variant="destructive" disabled>
-                  <Trash2 className="w-4 h-4" />
-                  Delete Account
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" disabled={deleting}>
+                      {deleting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Deleting...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-4 h-4" />
+                          Delete Account
+                        </>
+                      )}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete your account
+                        and remove all your data including emails, conversations, and connected accounts.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleDeleteAccount}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Yes, delete my account
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Account deletion is not available in demo mode.
+                  This will permanently delete your account and all associated data.
                 </p>
               </CardContent>
             </Card>
