@@ -12,7 +12,8 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Save, Download, Trash2, AlertTriangle } from "lucide-react";
+import { useTutorial } from "@/hooks/useTutorial";
+import { Loader2, Save, Download, Trash2, AlertTriangle, PlayCircle } from "lucide-react";
 
 interface Profile {
   reply_tone: "neutral" | "friendly" | "formal";
@@ -32,6 +33,7 @@ export default function Settings() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { startTutorial } = useTutorial();
 
   const [profile, setProfile] = useState<Profile>({
     reply_tone: "neutral" as const,
@@ -179,8 +181,11 @@ export default function Settings() {
 
           <div className="space-y-6">
             {/* Connected Accounts */}
-            <ConnectedAccounts />
+            <div data-tutorial="connected-accounts">
+              <ConnectedAccounts />
+            </div>
             {/* Reply Preferences */}
+            <div data-tutorial="reply-preferences">
             <Card>
               <CardHeader>
                 <CardTitle>Reply Preferences</CardTitle>
@@ -217,6 +222,7 @@ export default function Settings() {
                 </div>
               </CardContent>
             </Card>
+            </div>
 
             {/* Working Hours */}
             <Card>
@@ -373,6 +379,25 @@ export default function Settings() {
                 <p className="text-xs text-muted-foreground mt-2">
                   Account deletion is not available in demo mode.
                 </p>
+              </CardContent>
+            </Card>
+
+            {/* Play Tutorial */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <PlayCircle className="w-5 h-5" />
+                  App Tutorial
+                </CardTitle>
+                <CardDescription>
+                  Learn about all the features of Inbox Pilot
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button variant="outline" onClick={startTutorial} className="gap-2">
+                  <PlayCircle className="w-4 h-4" />
+                  Play Tutorial
+                </Button>
               </CardContent>
             </Card>
           </div>
