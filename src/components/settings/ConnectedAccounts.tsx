@@ -337,45 +337,24 @@ export function ConnectedAccounts() {
               </div>
             )}
 
-            <div className="flex gap-3">
-              <Button 
-                variant="outline" 
-                onClick={handleSyncInbox} 
-                disabled={syncing || gmailAccount?.status !== "connected"}
-                className="flex-1"
-              >
-                {syncing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Syncing...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-4 h-4" />
-                    Sync now (fallback)
-                  </>
-                )}
-              </Button>
-
-              <Button 
-                variant="outline" 
-                onClick={handleSuggestTimes} 
-                disabled={suggestingTimes || calendarAccount?.status !== "connected"}
-                className="flex-1"
-              >
-                {suggestingTimes ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Finding times...
-                  </>
-                ) : (
-                  <>
-                    <Calendar className="w-4 h-4" />
-                    Suggest Meeting Times
-                  </>
-                )}
-              </Button>
-            </div>
+            <Button 
+              variant="outline" 
+              onClick={handleSyncInbox} 
+              disabled={syncing || gmailAccount?.status !== "connected"}
+              className="w-full"
+            >
+              {syncing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4" />
+                  Sync now (fallback)
+                </>
+              )}
+            </Button>
 
             {/* Reconnect button */}
             <Button 
