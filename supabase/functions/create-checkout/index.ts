@@ -24,8 +24,10 @@ serve(async (req) => {
     const user = data.user;
     if (!user?.email) throw new Error("User not authenticated");
 
-    const { priceId } = await req.json();
+    const { priceId, mode } = await req.json();
     if (!priceId) throw new Error("Missing priceId");
+
+    const checkoutMode = mode === "payment" ? "payment" : "subscription";
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2025-08-27.basil",
@@ -41,7 +43,7 @@ serve(async (req) => {
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
       line_items: [{ price: priceId, quantity: 1 }],
-      mode: "subscription",
+      mode: checkoutMode,
       success_url: `${req.headers.get("origin")}/dashboard?checkout=success`,
       cancel_url: `${req.headers.get("origin")}/pricing`,
     });
