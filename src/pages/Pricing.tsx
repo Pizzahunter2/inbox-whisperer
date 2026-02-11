@@ -35,7 +35,22 @@ export default function Pricing() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [testLoading, setTestLoading] = useState(false);
 
+  const handleTestPayment = async () => {
+    setTestLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        body: { priceId: "price_1SzTJQJ1XB1DUJf2aDiNkW4c", mode: "payment" },
+      });
+      if (error) throw error;
+      if (data?.url) window.open(data.url, "_blank");
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to start test payment", variant: "destructive" });
+    } finally {
+      setTestLoading(false);
+    }
+  };
   const handleCheckout = async () => {
     if (!user) {
       navigate("/signup");
@@ -185,10 +200,26 @@ export default function Pricing() {
 
         {/* Refresh button */}
         {user && (
-          <div className="text-center mt-8">
+          <div className="text-center mt-8 space-y-4">
             <Button variant="ghost" size="sm" onClick={checkSubscription}>
               Refresh subscription status
             </Button>
+            <div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-muted-foreground"
+                disabled={testLoading}
+                onClick={handleTestPayment}
+              >
+                {testLoading ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
+                ) : (
+                  "🧪 Test Payment ($1)"
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground mt-1">Send $1 to verify Stripe is working</p>
+            </div>
           </div>
         )}
       </div>
