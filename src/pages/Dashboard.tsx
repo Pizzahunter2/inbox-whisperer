@@ -90,14 +90,18 @@ export default function Dashboard() {
     fetchMessages();
   }, []);
 
-  // Auto-trigger tutorial for new users
+  // Auto-trigger tutorial only for brand-new users (first ever login)
   useEffect(() => {
     if (user && !tutorialActive) {
       const seen = localStorage.getItem(`tutorial_seen_${user.id}`);
-      if (!seen) {
-        // Small delay to let the page render first
+      const accountAge = Date.now() - new Date(user.created_at).getTime();
+      const isNewUser = accountAge < 5 * 60 * 1000; // less than 5 minutes old
+      if (!seen && isNewUser) {
         const timer = setTimeout(() => startTutorial(), 800);
         return () => clearTimeout(timer);
+      } else if (!seen) {
+        // Mark as seen for existing users who never completed the tutorial
+        localStorage.setItem(`tutorial_seen_${user.id}`, "true");
       }
     }
   }, [user?.id]);
