@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { Send, Loader2, MessageSquare, Bot, User, PenLine } from "lucide-react";
+import { ChatCalendarActions, extractCalendarEvents } from "@/components/chat/ChatCalendarActions";
 import ReactMarkdown from "react-markdown";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -297,6 +298,10 @@ export default function Chat() {
                           Open in Composer
                         </Button>
                       )}
+                      {(() => {
+                        const calEvents = extractCalendarEvents(msg.content);
+                        return calEvents.length > 0 ? <ChatCalendarActions events={calEvents} /> : null;
+                      })()}
                     </>
                   ) : (
                     <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
