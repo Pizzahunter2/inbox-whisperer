@@ -215,7 +215,7 @@ serve(async (req) => {
     const baseUrl = stateData.redirectUrl 
       ? new URL(stateData.redirectUrl).origin 
       : 'https://id-preview--99e9d33a-16dd-4bb0-80bd-dc1135888b13.lovable.app';
-    const redirectUrl = `${baseUrl}/settings`;
+    const redirectUrl = `${baseUrl}/dashboard`;
     
     // Return a styled success page with proper popup/redirect handling
     return new Response(
