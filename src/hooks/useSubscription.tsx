@@ -13,8 +13,8 @@ export const PLANS = {
   pro: {
     name: "Pro",
     price: 9.99,
-    price_id: "price_1SzN2IJlyw1TDq2yX840m6NL",
-    product_id: "prod_TxHb5bHcqdTFUo",
+    price_id: "price_1SzTKsJ1XB1DUJf2qWmk99hp",
+    product_id: "prod_TxO7YRI5rHwxRt",
   },
 } as const;
 
