@@ -1,14 +1,15 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Mail, Sparkles, CheckCircle } from "lucide-react";
+import { ArrowRight, Mail, Sparkles, CheckCircle, Zap, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export function Hero() {
   return (
     <section className="relative min-h-[90vh] flex items-center justify-center gradient-hero overflow-hidden">
       {/* Background pattern */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-accent/30 rounded-full blur-3xl" />
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-accent/20 rounded-full blur-3xl" />
+      <div className="absolute inset-0">
+        <div className="absolute top-20 left-10 w-72 h-72 bg-accent/20 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-accent/15 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-accent/5 rounded-full blur-3xl" />
       </div>
       
       <div className="container relative z-10 px-4 py-20">
@@ -23,26 +24,26 @@ export function Hero() {
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 animate-slide-up" style={{ animationDelay: '0.1s' }}>
             Your inbox,
             <br />
-            <span className="text-accent">without the reading</span>
+            <span className="text-accent">on autopilot</span>
           </h1>
           
           {/* Subheadline */}
           <p className="text-lg md:text-xl text-primary-foreground/80 max-w-2xl mx-auto mb-10 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-            Inbox Pilot reads your emails, summarizes them, and proposes responses. 
-            You just approve, edit, or decline. Reclaim hours every week.
+            Inbox Pilot reads, summarizes, and drafts replies to your emails. 
+            Smart categorization, calendar integration, and AI compose—all in one place.
           </p>
           
           {/* CTA buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16 animate-slide-up" style={{ animationDelay: '0.3s' }}>
             <Button variant="hero" size="xl" asChild>
               <Link to="/signup">
-                Get Started Free
+                Start Free
                 <ArrowRight className="w-5 h-5" />
               </Link>
             </Button>
             <Button variant="heroOutline" size="xl" asChild>
-              <Link to="/login">
-                Sign In
+              <Link to="/pricing">
+                View Plans
               </Link>
             </Button>
           </div>
@@ -50,15 +51,15 @@ export function Hero() {
           {/* Trust indicators */}
           <div className="flex flex-wrap items-center justify-center gap-6 text-primary-foreground/60 text-sm animate-fade-in" style={{ animationDelay: '0.5s' }}>
             <div className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-accent" />
-              <span>No credit card required</span>
+              <Zap className="w-4 h-4 text-accent" />
+              <span>5 free analyses per day</span>
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-accent" />
               <span>Works with Gmail</span>
             </div>
             <div className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-accent" />
+              <Shield className="w-4 h-4 text-accent" />
               <span>Privacy-first design</span>
             </div>
           </div>
