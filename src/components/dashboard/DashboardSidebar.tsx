@@ -9,7 +9,7 @@ import {
   MessageSquare,
   PenLine,
   Crown,
-  Plane,
+  Mail,
   Moon,
   Sun,
 } from "lucide-react";
@@ -80,7 +80,7 @@ function SidebarContent({
       <div className="p-5 pb-4 relative z-10">
         <Link to="/dashboard" className="flex items-center gap-3 group" onClick={onLinkClick}>
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sidebar-primary to-sidebar-primary/70 flex items-center justify-center shadow-lg shadow-sidebar-primary/20 group-hover:shadow-sidebar-primary/40 transition-shadow">
-            <Plane className="w-5 h-5 text-sidebar-primary-foreground -rotate-45" />
+            <Mail className="w-5 h-5 text-sidebar-primary-foreground" />
           </div>
           <div>
             <span className="font-bold text-lg tracking-tight text-sidebar-foreground">Inbox Pilot</span>
