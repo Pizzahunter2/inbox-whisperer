@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Check, Loader2, ArrowLeft, Crown, Zap } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Check, Loader2, ArrowLeft, Crown, Zap, Gift } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const features = {
@@ -45,7 +46,8 @@ export default function Pricing() {
   const { toast } = useToast();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [billingInterval, setBillingInterval] = useState<"monthly" | "yearly">("monthly");
-
+  const [redeemCode, setRedeemCode] = useState("");
+  const [redeemLoading, setRedeemLoading] = useState(false);
   const priceId = billingInterval === "yearly" ? PLANS.pro.price_id_yearly : PLANS.pro.price_id_monthly;
   const displayPrice = billingInterval === "yearly" ? PLANS.pro.price_yearly : PLANS.pro.price_monthly;
   const intervalLabel = billingInterval === "yearly" ? "/year" : "/month";
@@ -81,6 +83,30 @@ export default function Pricing() {
       }
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "Failed to open portal", variant: "destructive" });
+    }
+  };
+
+  const handleRedeem = async () => {
+    if (!redeemCode.trim()) return;
+    if (!user) {
+      navigate("/signup");
+      return;
+    }
+    setRedeemLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("redeem-code", {
+        body: { code: redeemCode },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.url) {
+        toast({ title: "Code accepted!", description: data.description || "Redirecting to checkout..." });
+        window.open(data.url, "_blank");
+      }
+    } catch (err: any) {
+      toast({ title: "Invalid code", description: err.message || "That code is not valid.", variant: "destructive" });
+    } finally {
+      setRedeemLoading(false);
     }
   };
 
@@ -212,6 +238,33 @@ export default function Pricing() {
                 </>
               )}
             </CardFooter>
+          </Card>
+        </div>
+
+        {/* Redeem Code */}
+        <div className="max-w-md mx-auto mt-10">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Gift className="w-5 h-5 text-accent" />
+                Redeem a Code
+              </CardTitle>
+              <CardDescription>Have a promo code? Enter it below.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter code"
+                  value={redeemCode}
+                  onChange={(e) => setRedeemCode(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleRedeem()}
+                  disabled={redeemLoading}
+                />
+                <Button onClick={handleRedeem} disabled={redeemLoading || !redeemCode.trim()}>
+                  {redeemLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Redeem"}
+                </Button>
+              </div>
+            </CardContent>
           </Card>
         </div>
 
