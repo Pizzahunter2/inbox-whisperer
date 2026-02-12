@@ -780,6 +780,20 @@ Best`;
                     </Badge>
                   )}
                 </h4>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onProcess(message.id)}
+                  disabled={isProcessing}
+                  title="Re-analyze email and generate a new draft"
+                >
+                  {isProcessing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4" />
+                  )}
+                  {replyText ? "Re-roll Draft" : "Generate Draft"}
+                </Button>
               </div>
               
               <Textarea

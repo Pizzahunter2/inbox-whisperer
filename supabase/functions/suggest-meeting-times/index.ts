@@ -161,8 +161,10 @@ serve(async (req) => {
     }
 
     // Get events for the next 7 days
+    // Use a very short minimum notice (1 hour) so "tomorrow" requests aren't pushed 2 days out
+    const effectiveMinNotice = Math.min(minNotice, 1);
     const now = new Date();
-    const minTime = new Date(now.getTime() + minNotice * 60 * 60 * 1000);
+    const minTime = new Date(now.getTime() + effectiveMinNotice * 60 * 60 * 1000);
     const maxTime = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
     const eventsResponse = await fetch(
