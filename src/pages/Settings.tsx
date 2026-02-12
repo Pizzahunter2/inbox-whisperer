@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
+import { ProGate } from "@/components/ProGate";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { MobileHeader } from "@/components/dashboard/MobileHeader";
@@ -231,6 +232,7 @@ export default function Settings() {
             </div>
             {/* Reply Preferences */}
             <div data-tutorial="reply-preferences">
+            <ProGate feature="Reply Preferences">
             <Card>
               <CardHeader>
                 <CardTitle>Reply Preferences</CardTitle>
@@ -264,9 +266,11 @@ export default function Settings() {
                 </div>
               </CardContent>
             </Card>
+            </ProGate>
             </div>
 
             {/* Working Hours */}
+            <ProGate feature="Working Hours">
             <Card>
               <CardHeader>
                 <CardTitle>Working Hours</CardTitle>
@@ -302,8 +306,10 @@ export default function Settings() {
                 </div>
               </CardContent>
             </Card>
+            </ProGate>
 
             {/* Auto Actions */}
+            <ProGate feature="Automation Rules">
             <Card>
               <CardHeader>
                 <CardTitle>Automation Rules</CardTitle>
@@ -326,6 +332,7 @@ export default function Settings() {
                 </div>
               </CardContent>
             </Card>
+            </ProGate>
 
             {/* Save button */}
             <div className="flex justify-end">

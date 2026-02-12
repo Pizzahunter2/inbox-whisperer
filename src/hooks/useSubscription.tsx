@@ -6,17 +6,25 @@ import { useAuth } from "@/hooks/useAuth";
 export const PLANS = {
   free: {
     name: "Free",
-    price: 0,
-    price_id: null,
+    price_monthly: 0,
+    price_yearly: 0,
+    price_id_monthly: null,
+    price_id_yearly: null,
     product_id: null,
   },
   pro: {
     name: "Pro",
-    price: 9.99,
-    price_id: "price_1SzTKsJ1XB1DUJf2qWmk99hp",
-    product_id: "prod_TxO7YRI5rHwxRt",
+    price_monthly: 3.99,
+    price_yearly: 37,
+    price_id_monthly: "price_1T07S9J1XB1DUJf2Z1mrPong",
+    price_id_yearly: "price_1T07SNJ1XB1DUJf2l9aaUXk5",
+    product_id_monthly: "prod_Ty3ZJ5VIKBhiFW",
+    product_id_yearly: "prod_Ty3ZCBq4ZavdSX",
   },
 } as const;
+
+// All pro product IDs for checking
+export const PRO_PRODUCT_IDS = [PLANS.pro.product_id_monthly, PLANS.pro.product_id_yearly] as const;
 
 interface SubscriptionState {
   subscribed: boolean;
@@ -24,10 +32,14 @@ interface SubscriptionState {
   subscriptionEnd: string | null;
   loading: boolean;
   planName: string;
+  // For testing toggle
+  testOverride: boolean | null;
 }
 
 interface SubscriptionContextType extends SubscriptionState {
   checkSubscription: () => Promise<void>;
+  setTestOverride: (override: boolean | null) => void;
+  isPro: boolean;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType>({
@@ -36,7 +48,10 @@ const SubscriptionContext = createContext<SubscriptionContextType>({
   subscriptionEnd: null,
   loading: true,
   planName: "Free",
+  testOverride: null,
   checkSubscription: async () => {},
+  setTestOverride: () => {},
+  isPro: false,
 });
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
@@ -47,11 +62,12 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     subscriptionEnd: null,
     loading: true,
     planName: "Free",
+    testOverride: null,
   });
 
   const checkSubscription = useCallback(async () => {
     if (!session) {
-      setState({ subscribed: false, productId: null, subscriptionEnd: null, loading: false, planName: "Free" });
+      setState(prev => ({ ...prev, subscribed: false, productId: null, subscriptionEnd: null, loading: false, planName: "Free" }));
       return;
     }
 
@@ -59,20 +75,26 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase.functions.invoke("check-subscription");
       if (error) throw error;
 
-      const planName = data?.product_id === PLANS.pro.product_id ? "Pro" : "Free";
+      const isPro = PRO_PRODUCT_IDS.includes(data?.product_id);
+      const planName = isPro ? "Pro" : "Free";
 
-      setState({
+      setState(prev => ({
+        ...prev,
         subscribed: data?.subscribed ?? false,
         productId: data?.product_id ?? null,
         subscriptionEnd: data?.subscription_end ?? null,
         loading: false,
         planName,
-      });
+      }));
     } catch (err) {
       console.error("Error checking subscription:", err);
       setState(prev => ({ ...prev, loading: false }));
     }
   }, [session]);
+
+  const setTestOverride = useCallback((override: boolean | null) => {
+    setState(prev => ({ ...prev, testOverride: override }));
+  }, []);
 
   useEffect(() => {
     checkSubscription();
@@ -85,8 +107,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, [session, checkSubscription]);
 
+  // Compute isPro considering test override
+  const isPro = state.testOverride !== null ? state.testOverride : state.subscribed;
+
   return (
-    <SubscriptionContext.Provider value={{ ...state, checkSubscription }}>
+    <SubscriptionContext.Provider value={{ ...state, checkSubscription, setTestOverride, isPro }}>
       {children}
     </SubscriptionContext.Provider>
   );

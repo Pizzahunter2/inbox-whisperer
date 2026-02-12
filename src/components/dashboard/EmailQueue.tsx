@@ -3,6 +3,7 @@ import { Message } from "@/pages/Dashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { useSubscription } from "@/hooks/useSubscription";
 import { invokeFunctionWithRetry } from "@/lib/invokeFunctionWithRetry";
 import { deriveTagsForMessage, TAG_DEFINITIONS } from "@/lib/emailTags";
 import {
@@ -43,6 +44,7 @@ export function EmailQueue({
   onRefresh,
 }: EmailQueueProps) {
   const { toast } = useToast();
+  const { isPro } = useSubscription();
   const [syncing, setSyncing] = useState(false);
   const [bulkAnalyzing, setBulkAnalyzing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -195,47 +197,54 @@ export function EmailQueue({
               className="pl-9 h-9 text-sm"
             />
           </div>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={activeTagFilters.length > 0 ? "default" : "outline"}
-                size="sm"
-                className="h-9 gap-1.5"
-              >
-                <Filter className="w-4 h-4" />
-                Filter
-                {activeTagFilters.length > 0 && (
-                  <span className="ml-1 bg-primary-foreground/20 rounded-full px-1.5 text-xs">
-                    {activeTagFilters.length}
-                  </span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64 p-3" align="end">
-              <div className="space-y-1">
-                <p className="text-sm font-medium mb-2">Filter by tag</p>
-                {availableTags.map((tag) => (
-                  <label
-                    key={tag.id}
-                    className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-muted cursor-pointer"
-                  >
-                    <Checkbox
-                      checked={activeTagFilters.includes(tag.id)}
-                      onCheckedChange={() => toggleTagFilter(tag.id)}
-                    />
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${tag.bgClass} ${tag.textClass}`}>
-                      {tag.label}
+          {isPro ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={activeTagFilters.length > 0 ? "default" : "outline"}
+                  size="sm"
+                  className="h-9 gap-1.5"
+                >
+                  <Filter className="w-4 h-4" />
+                  Filter
+                  {activeTagFilters.length > 0 && (
+                    <span className="ml-1 bg-primary-foreground/20 rounded-full px-1.5 text-xs">
+                      {activeTagFilters.length}
                     </span>
-                  </label>
-                ))}
-                {activeTagFilters.length > 0 && (
-                  <Button variant="ghost" size="sm" onClick={() => setActiveTagFilters([])} className="w-full mt-2 text-xs">
-                    Clear filters
-                  </Button>
-                )}
-              </div>
-            </PopoverContent>
-          </Popover>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-3" align="end">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium mb-2">Filter by tag</p>
+                  {availableTags.map((tag) => (
+                    <label
+                      key={tag.id}
+                      className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-muted cursor-pointer"
+                    >
+                      <Checkbox
+                        checked={activeTagFilters.includes(tag.id)}
+                        onCheckedChange={() => toggleTagFilter(tag.id)}
+                      />
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${tag.bgClass} ${tag.textClass}`}>
+                        {tag.label}
+                      </span>
+                    </label>
+                  ))}
+                  {activeTagFilters.length > 0 && (
+                    <Button variant="ghost" size="sm" onClick={() => setActiveTagFilters([])} className="w-full mt-2 text-xs">
+                      Clear filters
+                    </Button>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <Button variant="outline" size="sm" className="h-9 gap-1.5 opacity-50" disabled title="Upgrade to Pro">
+              <Filter className="w-4 h-4" />
+              Filter
+            </Button>
+          )}
         </div>
 
         {/* Active filter chips */}
