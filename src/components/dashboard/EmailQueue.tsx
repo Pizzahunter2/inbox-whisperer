@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useUsageLimits } from "@/hooks/useUsageLimits";
+import { UpgradeDialog } from "@/components/UpgradeDialog";
 import { invokeFunctionWithRetry } from "@/lib/invokeFunctionWithRetry";
 import { deriveTagsForMessage, TAG_DEFINITIONS } from "@/lib/emailTags";
 import {
@@ -45,10 +47,12 @@ export function EmailQueue({
 }: EmailQueueProps) {
   const { toast } = useToast();
   const { isPro } = useSubscription();
+  const { canAnalyze, analysesRemaining, incrementAnalyses } = useUsageLimits();
   const [syncing, setSyncing] = useState(false);
   const [bulkAnalyzing, setBulkAnalyzing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const stopBulkRef = useRef(false);
 
   const messagesWithTags = useMemo(
@@ -106,8 +110,13 @@ export function EmailQueue({
     let success = 0;
     let failed = 0;
     for (const msg of unanalyzed) {
-      // Check stop flag before starting next email
       if (stopBulkRef.current) break;
+      // Check usage limit before each analysis
+      const allowed = await incrementAnalyses();
+      if (!allowed) {
+        setShowUpgrade(true);
+        break;
+      }
       try {
         onProcess(msg.id, false);
         success++;
@@ -341,23 +350,36 @@ export function EmailQueue({
                     {/* Tags */}
                     <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                       {message.classification ? (
-                        tags.map((tag) => (
-                          <span
-                            key={tag.id}
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${tag.bgClass} ${tag.textClass}`}
-                          >
-                            {tag.label}
+                        isPro ? (
+                          tags.map((tag) => (
+                            <span
+                              key={tag.id}
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${tag.bgClass} ${tag.textClass}`}
+                            >
+                              {tag.label}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-muted text-muted-foreground">
+                            Analyzed ✓
                           </span>
-                        ))
+                        )
                       ) : (
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
+                            if (!isPro) {
+                              const allowed = await incrementAnalyses();
+                              if (!allowed) {
+                                setShowUpgrade(true);
+                                return;
+                              }
+                            }
                             onProcess(message.id);
                           }}
-                          disabled={isProcessing}
+                          disabled={isProcessing || (!isPro && !canAnalyze)}
                           className="h-7 text-xs"
                         >
                           {isProcessing ? (
@@ -368,7 +390,7 @@ export function EmailQueue({
                           ) : (
                             <>
                               <Sparkles className="w-3 h-3" />
-                              Analyze
+                              Analyze{!isPro ? ` (${analysesRemaining})` : ""}
                             </>
                           )}
                         </Button>
@@ -383,6 +405,12 @@ export function EmailQueue({
           })
         )}
       </div>
+      <UpgradeDialog
+        open={showUpgrade}
+        onOpenChange={setShowUpgrade}
+        title="Daily Analysis Limit Reached"
+        description="Free plan users can analyze up to 5 emails per day. Upgrade to Pro for unlimited analyses."
+      />
     </div>
   );
 }

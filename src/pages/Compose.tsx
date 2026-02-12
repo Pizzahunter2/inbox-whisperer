@@ -5,7 +5,8 @@ import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { MobileHeader } from "@/components/dashboard/MobileHeader";
 import { AddEmailModal } from "@/components/dashboard/AddEmailModal";
 import { DeleteOldEmailsModal } from "@/components/dashboard/DeleteOldEmailsModal";
-import { ProGate } from "@/components/ProGate";
+import { UpgradeDialog } from "@/components/UpgradeDialog";
+import { useSubscription } from "@/hooks/useSubscription";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,14 +28,30 @@ interface DraftState {
 }
 
 export default function Compose() {
+  const { isPro } = useSubscription();
+  const [showUpgrade, setShowUpgrade] = useState(false);
+
+  const handleProGatedFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (!isPro) {
+      e.target.blur();
+      setShowUpgrade(true);
+    }
+  };
+
   return (
-    <ProGate mode="page" feature="Compose">
-      <ComposeContent />
-    </ProGate>
+    <>
+      <ComposeContent isPro={isPro} onGatedFocus={handleProGatedFocus} />
+      <UpgradeDialog
+        open={showUpgrade}
+        onOpenChange={setShowUpgrade}
+        title="Compose is a Pro Feature"
+        description="Upgrade to Pro to draft, refine with AI, and send emails directly from Inbox Pilot."
+      />
+    </>
   );
 }
 
-function ComposeContent() {
+function ComposeContent({ isPro, onGatedFocus }: { isPro: boolean; onGatedFocus: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void }) {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -246,6 +263,8 @@ function ComposeContent() {
                   placeholder="recipient@example.com"
                   value={draft.to}
                   onChange={(e) => setDraft((d) => ({ ...d, to: e.target.value }))}
+                  onFocus={onGatedFocus}
+                  readOnly={!isPro}
                 />
               </div>
               <div>
@@ -254,6 +273,8 @@ function ComposeContent() {
                   placeholder="Email subject"
                   value={draft.subject}
                   onChange={(e) => setDraft((d) => ({ ...d, subject: e.target.value }))}
+                  onFocus={onGatedFocus}
+                  readOnly={!isPro}
                 />
               </div>
               <div>
@@ -264,6 +285,8 @@ function ComposeContent() {
                   onChange={(e) => setDraft((d) => ({ ...d, body: e.target.value }))}
                   className="min-h-[200px] md:min-h-[250px]"
                   rows={10}
+                  onFocus={onGatedFocus}
+                  readOnly={!isPro}
                 />
               </div>
             </div>
@@ -280,11 +303,13 @@ function ComposeContent() {
                   value={aiInstruction}
                   onChange={(e) => setAiInstruction(e.target.value)}
                   onKeyDown={handleInstructionKeyDown}
-                  disabled={isRefining}
+                  disabled={isRefining || !isPro}
+                  onFocus={onGatedFocus}
+                  readOnly={!isPro}
                 />
                 <Button
                   onClick={handleRefineDraft}
-                  disabled={isRefining || (!aiInstruction.trim() && !draft.body)}
+                  disabled={isRefining || (!aiInstruction.trim() && !draft.body) || !isPro}
                   variant="secondary"
                   className="flex-shrink-0"
                 >
@@ -296,7 +321,7 @@ function ComposeContent() {
                 variant="outline"
                 size="sm"
                 onClick={handleSuggestTimes}
-                disabled={isSuggestingTimes}
+                disabled={isSuggestingTimes || !isPro}
                 className="gap-1.5"
               >
                 {isSuggestingTimes ? <Loader2 className="w-4 h-4 animate-spin" /> : <CalendarClock className="w-4 h-4" />}
@@ -310,7 +335,7 @@ function ComposeContent() {
               <Button
                 variant="action"
                 onClick={handleSend}
-                disabled={isSending || !draft.to || !draft.subject || !draft.body}
+                disabled={isSending || !draft.to || !draft.subject || !draft.body || !isPro}
                 className="gap-1.5"
               >
                 {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
