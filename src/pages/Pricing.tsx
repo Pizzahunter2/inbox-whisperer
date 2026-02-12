@@ -210,29 +210,11 @@ export default function Pricing() {
           </Card>
         </div>
 
-        {/* Refresh + Test toggle */}
         {user && (
-          <div className="text-center mt-8 space-y-4">
+          <div className="text-center mt-8">
             <Button variant="ghost" size="sm" onClick={checkSubscription}>
               Refresh subscription status
             </Button>
-            {/* Test toggle - remove before production */}
-            <div className="border border-dashed border-muted-foreground/30 rounded-lg p-4 max-w-xs mx-auto">
-              <p className="text-xs text-muted-foreground mb-2 font-medium">🧪 Test Mode</p>
-              <div className="flex items-center justify-center gap-3">
-                <Label className="text-sm">Free</Label>
-                <Switch
-                  checked={testOverride === true || (testOverride === null && isPro)}
-                  onCheckedChange={(checked) => setTestOverride(checked ? true : false)}
-                />
-                <Label className="text-sm">Pro</Label>
-              </div>
-              {testOverride !== null && (
-                <Button variant="ghost" size="sm" className="mt-2 text-xs" onClick={() => setTestOverride(null)}>
-                  Reset to actual plan
-                </Button>
-              )}
-            </div>
           </div>
         )}
       </div>
