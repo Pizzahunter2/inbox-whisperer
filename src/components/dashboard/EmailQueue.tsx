@@ -9,6 +9,13 @@ import { UpgradeDialog } from "@/components/UpgradeDialog";
 import { invokeFunctionWithRetry } from "@/lib/invokeFunctionWithRetry";
 import { deriveTagsForMessage, TAG_DEFINITIONS } from "@/lib/emailTags";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Loader2,
   Sparkles,
   ChevronRight,
@@ -53,6 +60,7 @@ export function EmailQueue({
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [displayLimit, setDisplayLimit] = useState<number>(25);
   const stopBulkRef = useRef(false);
 
   const messagesWithTags = useMemo(
@@ -279,11 +287,28 @@ export function EmailQueue({
           </div>
         )}
 
-        <p className="text-sm text-muted-foreground">
-          {filteredMessages.length === messages.length
-            ? `${messages.length} email${messages.length !== 1 ? "s" : ""} waiting for review`
-            : `${filteredMessages.length} of ${messages.length} emails`}
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            {filteredMessages.length === messages.length
+              ? `${messages.length} email${messages.length !== 1 ? "s" : ""} waiting for review`
+              : `${filteredMessages.length} of ${messages.length} emails`}
+          </p>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Show:</span>
+            <Select value={String(displayLimit)} onValueChange={(v) => setDisplayLimit(Number(v))}>
+              <SelectTrigger className="h-7 w-[70px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+                <SelectItem value="99999">All</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </div>
 
       {/* Email list */}
@@ -308,7 +333,7 @@ export function EmailQueue({
             )}
           </div>
         ) : (
-          filteredMessages.map(({ message, tags }) => {
+          filteredMessages.slice(0, displayLimit).map(({ message, tags }) => {
             const isProcessing = processingId === message.id;
             const isSelected = selectedId === message.id;
 

@@ -6,12 +6,11 @@ import {
   CheckCircle, 
   Settings, 
   LogOut, 
-  Plus,
-  Clock,
   Trash2,
   MessageSquare,
   PenLine,
-  Crown
+  Crown,
+  Plane
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -53,47 +52,46 @@ function SidebarContent({
   return (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="p-6 border-b border-sidebar-border">
-        <Link to="/dashboard" className="flex items-center gap-2" onClick={onLinkClick}>
-          <div className="w-9 h-9 rounded-lg bg-sidebar-primary flex items-center justify-center">
-            <Mail className="w-5 h-5 text-sidebar-primary-foreground" />
+      <div className="p-5 pb-4">
+        <Link to="/dashboard" className="flex items-center gap-3 group" onClick={onLinkClick}>
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sidebar-primary to-sidebar-primary/70 flex items-center justify-center shadow-lg shadow-sidebar-primary/20 group-hover:shadow-sidebar-primary/40 transition-shadow">
+            <Plane className="w-5 h-5 text-sidebar-primary-foreground -rotate-45" />
           </div>
-          <span className="font-semibold text-lg">Inbox Pilot</span>
+          <div>
+            <span className="font-bold text-lg tracking-tight text-sidebar-foreground">Inbox Pilot</span>
+            <p className="text-[10px] text-sidebar-foreground/40 -mt-0.5 tracking-wider uppercase">AI Email Assistant</p>
+          </div>
         </Link>
       </div>
 
-      {/* Actions */}
-      <div className="p-4">
-        <Button 
-          variant="outline" 
-          className="w-full justify-start gap-2 text-destructive hover:text-destructive"
-          onClick={() => { onDeleteOld(); onLinkClick?.(); }}
-        >
-          <Trash2 className="w-4 h-4" />
-          Delete Old Emails
-        </Button>
-      </div>
+      {/* Divider */}
+      <div className="mx-4 h-px bg-gradient-to-r from-transparent via-sidebar-border to-transparent" />
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-2">
-        <ul className="space-y-1">
+      <nav className="flex-1 px-3 py-4">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30 px-3 mb-2">Menu</p>
+        <ul className="space-y-0.5">
           {navItems.map((item) => (
             <li key={item.href}>
               <Link
                 to={item.href}
                 onClick={onLinkClick}
-                className={`flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${
+                className={`flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 ${
                   item.active 
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground" 
-                    : "hover:bg-sidebar-accent/50"
+                    ? "bg-sidebar-primary/15 text-sidebar-primary shadow-sm" 
+                    : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <item.icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
+                  <item.icon className={`w-[18px] h-[18px] ${item.active ? "text-sidebar-primary" : ""}`} />
+                  <span className="text-sm font-medium">{item.label}</span>
                 </div>
                 {item.count !== undefined && item.count > 0 && (
-                  <span className="bg-sidebar-primary text-sidebar-primary-foreground text-xs font-medium px-2 py-0.5 rounded-full">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[22px] text-center ${
+                    item.active 
+                      ? "bg-sidebar-primary text-sidebar-primary-foreground" 
+                      : "bg-sidebar-accent text-sidebar-foreground/70"
+                  }`}>
                     {item.count}
                   </span>
                 )}
@@ -101,21 +99,35 @@ function SidebarContent({
             </li>
           ))}
         </ul>
+
+        {/* Danger zone */}
+        <div className="mt-6">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30 px-3 mb-2">Manage</p>
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start gap-3 px-3 text-sm font-medium text-destructive/80 hover:text-destructive hover:bg-destructive/10 h-10"
+            onClick={() => { onDeleteOld(); onLinkClick?.(); }}
+          >
+            <Trash2 className="w-[18px] h-[18px]" />
+            Delete Old Emails
+          </Button>
+        </div>
       </nav>
 
       {/* User section */}
-      <div className="p-4 border-t border-sidebar-border">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-9 h-9 rounded-full bg-sidebar-accent flex items-center justify-center">
-            <span className="text-sm font-medium">
+      <div className="mx-4 h-px bg-gradient-to-r from-transparent via-sidebar-border to-transparent" />
+      <div className="p-4">
+        <div className="flex items-center gap-3 mb-3 p-2 rounded-lg bg-sidebar-accent/30">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-sidebar-primary to-sidebar-primary/60 flex items-center justify-center text-sidebar-primary-foreground shadow-sm">
+            <span className="text-sm font-bold">
               {user?.email?.charAt(0).toUpperCase()}
             </span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">
+            <p className="text-sm font-medium truncate text-sidebar-foreground">
               {user?.user_metadata?.full_name || "User"}
             </p>
-            <p className="text-xs text-sidebar-foreground/60 truncate">
+            <p className="text-[11px] text-sidebar-foreground/50 truncate">
               {user?.email}
             </p>
           </div>
@@ -124,10 +136,10 @@ function SidebarContent({
         <Button 
           variant="ghost" 
           size="sm"
-          className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+          className="w-full justify-start gap-2 text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 text-xs"
           onClick={() => { onSignOut(); onLinkClick?.(); }}
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut className="w-3.5 h-3.5" />
           Sign Out
         </Button>
       </div>
