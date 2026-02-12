@@ -198,13 +198,18 @@ export default function Pricing() {
                   Manage Subscription
                 </Button>
               ) : (
-                <Button variant="action" className="w-full" onClick={handleCheckout} disabled={checkoutLoading}>
-                  {checkoutLoading ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" />Starting checkout...</>
-                  ) : (
-                    "Upgrade to Pro"
-                  )}
-                </Button>
+                <>
+                  <Button variant="action" className="w-full" onClick={handleCheckout} disabled={checkoutLoading}>
+                    {checkoutLoading ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" />Starting checkout...</>
+                    ) : (
+                      "Start 7-Day Free Trial"
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-2 text-center">
+                    Free for 7 days, then {billingInterval === "yearly" ? `$${PLANS.pro.price_yearly}/year` : `$${PLANS.pro.price_monthly}/month`}. Cancel anytime.
+                  </p>
+                </>
               )}
             </CardFooter>
           </Card>
