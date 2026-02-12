@@ -1,44 +1,59 @@
-import { Brain, MousePointerClick, Send, Inbox, Calendar, Zap } from "lucide-react";
+import { Brain, MousePointerClick, Send, Inbox, Calendar, Zap, Crown, Mail, Sparkles } from "lucide-react";
 
 const steps = [
   {
     icon: Brain,
-    title: "AI Reads",
+    title: "AI Reads & Summarizes",
     description: "Every email gets summarized, categorized, and analyzed. Meeting requests, action items, newsletters—all sorted automatically.",
     color: "text-info",
     bgColor: "bg-info/10",
   },
   {
     icon: MousePointerClick,
-    title: "You Approve",
+    title: "You Review & Approve",
     description: "Review simple cards instead of full emails. See the summary, proposed action, and draft reply. One glance tells you everything.",
     color: "text-accent",
     bgColor: "bg-accent/10",
   },
   {
     icon: Send,
-    title: "It Replies",
+    title: "It Replies For You",
     description: "Accept the AI draft, tweak it if needed, or decline. Responses go out in your voice. You stay in control, just faster.",
     color: "text-success",
     bgColor: "bg-success/10",
   },
 ];
 
-const additionalFeatures = [
+const proFeatures = [
+  {
+    icon: Sparkles,
+    title: "AI Compose",
+    description: "Write new emails from scratch with AI assistance—describe what you want and let Inbox Pilot draft it.",
+  },
   {
     icon: Inbox,
     title: "Smart Categorization",
-    description: "Meeting requests, invoices, newsletters—automatically tagged and prioritized.",
+    description: "Meeting requests, invoices, newsletters—automatically tagged and prioritized with visible labels.",
   },
   {
     icon: Calendar,
-    title: "Calendar Aware",
+    title: "Calendar Integration",
     description: "Meeting requests get time slot suggestions based on your real availability.",
   },
   {
+    icon: Crown,
+    title: "Unlimited Analyses",
+    description: "Pro users get unlimited email analyses and calendar additions. Free plan includes 5 per day.",
+  },
+  {
+    icon: Mail,
+    title: "Inbox Chat",
+    description: "Chat with your inbox using AI—ask questions about your emails, find information, and get summaries.",
+  },
+  {
     icon: Zap,
-    title: "Instant Actions",
-    description: "Archive newsletters, flag invoices, schedule meetings—all with one click.",
+    title: "Automation Rules",
+    description: "Auto-archive newsletters, flag invoices, customize reply tone and signature—all on autopilot.",
   },
 ];
 
@@ -86,17 +101,23 @@ export function Features() {
           ))}
         </div>
         
-        {/* Additional features */}
+        {/* Pro features grid */}
         <div className="border-t border-border pt-16">
-          <h3 className="text-2xl font-semibold text-center text-foreground mb-12">
-            Plus, powerful features
-          </h3>
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 text-accent text-sm font-medium mb-4">
+              <Crown className="w-4 h-4" />
+              Unlock with Pro
+            </div>
+            <h3 className="text-2xl md:text-3xl font-bold text-foreground">
+              Powerful features to supercharge your inbox
+            </h3>
+          </div>
           
-          <div className="grid sm:grid-cols-3 gap-6">
-            {additionalFeatures.map((feature) => (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {proFeatures.map((feature) => (
               <div 
                 key={feature.title}
-                className="flex items-start gap-4 p-6 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
+                className="flex items-start gap-4 p-6 rounded-xl bg-muted/50 hover:bg-muted transition-colors border border-transparent hover:border-border"
               >
                 <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
                   <feature.icon className="w-5 h-5 text-accent" />

@@ -19,8 +19,8 @@ export function Footer() {
             <Link to="/login" className="hover:text-primary-foreground transition-colors">
               Sign In
             </Link>
-            <Link to="/signup" className="hover:text-primary-foreground transition-colors">
-              Sign Up
+            <Link to="/pricing" className="hover:text-primary-foreground transition-colors">
+              Pricing
             </Link>
             <Link to="/terms" className="hover:text-primary-foreground transition-colors">
               Terms of Service

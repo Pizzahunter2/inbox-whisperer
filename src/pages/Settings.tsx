@@ -17,7 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useTutorial } from "@/hooks/useTutorial";
-import { Loader2, Save, Download, Trash2, AlertTriangle, PlayCircle, Crown } from "lucide-react";
+import { Loader2, Save, Download, Trash2, AlertTriangle, PlayCircle, Crown, Mail } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -408,6 +408,25 @@ export default function Settings() {
                   <PlayCircle className="w-4 h-4" />
                   Play Tutorial
                 </Button>
+              </CardContent>
+            </Card>
+
+            {/* Support Contact */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="w-5 h-5" />
+                  Support
+                </CardTitle>
+                <CardDescription>Need help or found a bug?</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  For any issues, bug reports, or feature requests, please email us at{" "}
+                  <a href="mailto:inboxpilot15@gmail.com" className="text-accent hover:underline font-medium">
+                    inboxpilot15@gmail.com
+                  </a>
+                </p>
               </CardContent>
             </Card>
           </div>
