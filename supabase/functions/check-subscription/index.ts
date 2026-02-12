@@ -44,7 +44,7 @@ serve(async (req) => {
     const subscriptions = await stripe.subscriptions.list({
       customer: customerId,
       status: "active",
-      limit: 1,
+      limit: 10,
     });
 
     const hasActiveSub = subscriptions.data.length > 0;

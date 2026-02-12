@@ -5,6 +5,7 @@ import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { MobileHeader } from "@/components/dashboard/MobileHeader";
 import { AddEmailModal } from "@/components/dashboard/AddEmailModal";
 import { DeleteOldEmailsModal } from "@/components/dashboard/DeleteOldEmailsModal";
+import { ProGate } from "@/components/ProGate";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +19,14 @@ type ChatMessage = { role: "user" | "assistant"; content: string };
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-inbox`;
 
 export default function Chat() {
+  return (
+    <ProGate mode="page" feature="Inbox Chat">
+      <ChatContent />
+    </ProGate>
+  );
+}
+
+function ChatContent() {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -44,7 +53,6 @@ export default function Chat() {
   // Save conversation to DB
   const saveConversation = useCallback(async (msgs: ChatMessage[], convId: string | null) => {
     if (msgs.length === 0 || !user) return;
-    // Generate a title from first user message
     const firstUserMsg = msgs.find((m) => m.role === "user");
     const title = firstUserMsg ? firstUserMsg.content.slice(0, 80) : "New Chat";
 
@@ -77,7 +85,6 @@ export default function Chat() {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
-      // Save on unmount (navigation away)
       if (messagesRef.current.length > 0) {
         saveConversation(messagesRef.current, conversationId);
       }
@@ -212,7 +219,7 @@ export default function Chat() {
       <MobileHeader title="Inbox Chat" onOpenSidebar={() => setSidebarOpen(true)} />
 
       <div className="flex-1 flex flex-col h-[calc(100vh-49px)] md:h-screen">
-        {/* Header - hidden on mobile since MobileHeader covers it */}
+        {/* Header */}
         <div className="hidden md:flex border-b border-border px-6 py-4 items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
             <MessageSquare className="w-5 h-5 text-accent" />
@@ -254,7 +261,6 @@ export default function Chat() {
           )}
 
           {messages.map((msg, i) => {
-            // Parse compose blocks from assistant messages
             let displayContent = msg.content;
             let composeDraft: { to: string; subject: string; body: string } | null = null;
 
@@ -264,7 +270,7 @@ export default function Chat() {
                 try {
                   composeDraft = JSON.parse(composeMatch[1]);
                   displayContent = msg.content.replace(/:::COMPOSE:::[\s\S]*?:::COMPOSE:::/, "").trim();
-                } catch { /* ignore parse error */ }
+                } catch { /* ignore */ }
               }
             }
 

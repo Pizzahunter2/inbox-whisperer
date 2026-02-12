@@ -6,51 +6,50 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Check, Loader2, ArrowLeft, Crown, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const features = {
   free: [
-    "5 emails processed per day",
-    "Basic AI classification",
-    "Email queue dashboard",
-    "Manual email processing",
+    "Read calendar",
+    "Read email",
+    "Summarize emails (5 per day)",
+    "AI-generated responses (5 per day)",
+    "Manual editing of AI responses",
+    "Add events to calendar (limit 5)",
   ],
   pro: [
-    "Unlimited email processing",
-    "Advanced AI classification & replies",
-    "Priority processing speed",
-    "Custom reply tone & signature",
-    "Meeting slot suggestions",
-    "Auto-archive newsletters",
-    "Invoice flagging",
-    "AI chat assistant",
-    "Export data",
+    "Read calendar",
+    "Read email",
+    "Summarize unlimited emails per day",
+    "AI-generated responses (unlimited)",
+    "Manual editing of AI responses",
+    "Add events to calendar (no limit)",
+    "Compose: AI-generated emails",
+    "Reply preferences in settings",
+    "Working hours in settings",
+    "Automation rules in settings",
+    "Categorize emails automatically",
+    "Filter by categories",
+    "Inbox Chat with calendar actions",
+    "Automated event detection (flights, tickets, etc.)",
   ],
 };
 
 export default function Pricing() {
   const { user } = useAuth();
-  const { subscribed, planName, checkSubscription } = useSubscription();
+  const { subscribed, planName, isPro, checkSubscription, setTestOverride, testOverride } = useSubscription();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [testLoading, setTestLoading] = useState(false);
+  const [billingInterval, setBillingInterval] = useState<"monthly" | "yearly">("monthly");
 
-  const handleTestPayment = async () => {
-    setTestLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { priceId: "price_1SzTJQJ1XB1DUJf2aDiNkW4c", mode: "payment" },
-      });
-      if (error) throw error;
-      if (data?.url) window.open(data.url, "_blank");
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message || "Failed to start test payment", variant: "destructive" });
-    } finally {
-      setTestLoading(false);
-    }
-  };
+  const priceId = billingInterval === "yearly" ? PLANS.pro.price_id_yearly : PLANS.pro.price_id_monthly;
+  const displayPrice = billingInterval === "yearly" ? PLANS.pro.price_yearly : PLANS.pro.price_monthly;
+  const intervalLabel = billingInterval === "yearly" ? "/year" : "/month";
+
   const handleCheckout = async () => {
     if (!user) {
       navigate("/signup");
@@ -60,7 +59,7 @@ export default function Pricing() {
     setCheckoutLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { priceId: PLANS.pro.price_id },
+        body: { priceId },
       });
       if (error) throw error;
       if (data?.url) {
@@ -96,7 +95,7 @@ export default function Pricing() {
           </Button>
         </div>
 
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3">
             Simple, transparent pricing
           </h1>
@@ -105,11 +104,24 @@ export default function Pricing() {
           </p>
         </div>
 
+        {/* Billing toggle */}
+        <div className="flex items-center justify-center gap-3 mb-10">
+          <span className={`text-sm font-medium ${billingInterval === "monthly" ? "text-foreground" : "text-muted-foreground"}`}>Monthly</span>
+          <Switch
+            checked={billingInterval === "yearly"}
+            onCheckedChange={(checked) => setBillingInterval(checked ? "yearly" : "monthly")}
+          />
+          <span className={`text-sm font-medium ${billingInterval === "yearly" ? "text-foreground" : "text-muted-foreground"}`}>
+            Yearly
+            <Badge variant="secondary" className="ml-2 text-xs">Save 23%</Badge>
+          </span>
+        </div>
+
         {/* Plan Cards */}
         <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
           {/* Free Plan */}
-          <Card className={`relative ${planName === "Free" && user ? "border-primary" : ""}`}>
-            {planName === "Free" && user && (
+          <Card className={`relative ${planName === "Free" && user && !isPro ? "border-primary" : ""}`}>
+            {planName === "Free" && user && !isPro && (
               <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground">
                 Your Plan
               </Badge>
@@ -142,15 +154,15 @@ export default function Pricing() {
                 </Button>
               ) : (
                 <Button variant="outline" className="w-full" disabled>
-                  {planName === "Free" ? "Current Plan" : "Downgrade via Portal"}
+                  {!isPro ? "Current Plan" : "Downgrade via Portal"}
                 </Button>
               )}
             </CardFooter>
           </Card>
 
           {/* Pro Plan */}
-          <Card className={`relative border-2 ${planName === "Pro" ? "border-primary" : "border-accent"}`}>
-            {planName === "Pro" ? (
+          <Card className={`relative border-2 ${isPro ? "border-primary" : "border-accent"}`}>
+            {isPro ? (
               <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground">
                 Your Plan
               </Badge>
@@ -166,8 +178,8 @@ export default function Pricing() {
               </CardTitle>
               <CardDescription>For power users who want full automation</CardDescription>
               <div className="mt-4">
-                <span className="text-4xl font-bold text-foreground">$9.99</span>
-                <span className="text-muted-foreground">/month</span>
+                <span className="text-4xl font-bold text-foreground">${displayPrice}</span>
+                <span className="text-muted-foreground">{intervalLabel}</span>
               </div>
             </CardHeader>
             <CardContent>
@@ -198,27 +210,28 @@ export default function Pricing() {
           </Card>
         </div>
 
-        {/* Refresh button */}
+        {/* Refresh + Test toggle */}
         {user && (
           <div className="text-center mt-8 space-y-4">
             <Button variant="ghost" size="sm" onClick={checkSubscription}>
               Refresh subscription status
             </Button>
-            <div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-muted-foreground"
-                disabled={testLoading}
-                onClick={handleTestPayment}
-              >
-                {testLoading ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
-                ) : (
-                  "🧪 Test Payment ($1)"
-                )}
-              </Button>
-              <p className="text-xs text-muted-foreground mt-1">Send $1 to verify Stripe is working</p>
+            {/* Test toggle - remove before production */}
+            <div className="border border-dashed border-muted-foreground/30 rounded-lg p-4 max-w-xs mx-auto">
+              <p className="text-xs text-muted-foreground mb-2 font-medium">🧪 Test Mode</p>
+              <div className="flex items-center justify-center gap-3">
+                <Label className="text-sm">Free</Label>
+                <Switch
+                  checked={testOverride === true || (testOverride === null && isPro)}
+                  onCheckedChange={(checked) => setTestOverride(checked ? true : false)}
+                />
+                <Label className="text-sm">Pro</Label>
+              </div>
+              {testOverride !== null && (
+                <Button variant="ghost" size="sm" className="mt-2 text-xs" onClick={() => setTestOverride(null)}>
+                  Reset to actual plan
+                </Button>
+              )}
             </div>
           </div>
         )}

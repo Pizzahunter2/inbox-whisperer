@@ -5,6 +5,7 @@ import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { MobileHeader } from "@/components/dashboard/MobileHeader";
 import { AddEmailModal } from "@/components/dashboard/AddEmailModal";
 import { DeleteOldEmailsModal } from "@/components/dashboard/DeleteOldEmailsModal";
+import { ProGate } from "@/components/ProGate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,6 +27,14 @@ interface DraftState {
 }
 
 export default function Compose() {
+  return (
+    <ProGate mode="page" feature="Compose">
+      <ComposeContent />
+    </ProGate>
+  );
+}
+
+function ComposeContent() {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -122,7 +131,6 @@ export default function Compose() {
           });
         });
 
-        // Now call refine-draft with the slots to weave them into the email
         const refineResp = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/refine-draft`,
           {
@@ -215,7 +223,6 @@ export default function Compose() {
       <MobileHeader title="Compose" onOpenSidebar={() => setSidebarOpen(true)} />
 
       <div className="flex-1 flex flex-col h-[calc(100vh-49px)] md:h-screen">
-        {/* Header - hidden on mobile */}
         <div className="hidden md:flex border-b border-border px-6 py-4 items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate("/chat")}>
             <ArrowLeft className="w-5 h-5" />
@@ -231,7 +238,6 @@ export default function Compose() {
 
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-4 md:px-6 py-6 space-y-6">
-            {/* Email fields */}
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-foreground mb-1.5 block">To</label>
@@ -262,7 +268,6 @@ export default function Compose() {
               </div>
             </div>
 
-            {/* AI Refinement */}
             <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-3">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <Sparkles className="w-4 h-4 text-accent" />
@@ -300,7 +305,6 @@ export default function Compose() {
               </Button>
             </div>
 
-            {/* Send */}
             <div className="flex justify-end gap-3">
               <Button variant="outline" onClick={() => navigate("/chat")}>Cancel</Button>
               <Button
