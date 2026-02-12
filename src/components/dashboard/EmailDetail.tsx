@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { MeetingTimeSelector } from "./MeetingTimeSelector";
 import { useToast } from "@/hooks/use-toast";
+import { useUsageLimits } from "@/hooks/useUsageLimits";
+import { UpgradeDialog } from "@/components/UpgradeDialog";
 import { invokeFunctionWithRetry } from "@/lib/invokeFunctionWithRetry";
 import {
   X,
@@ -66,8 +68,10 @@ export function EmailDetail({
 }: EmailDetailProps) {
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { incrementCalendarAdds } = useUsageLimits();
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [showFullEmail, setShowFullEmail] = useState(false);
-  const [editingReply, setEditingReply] = useState(true); // Always editable
+  const [editingReply, setEditingReply] = useState(true);
   const [replyText, setReplyText] = useState(message.proposal?.suggested_reply || "");
   const [submitting, setSubmitting] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
@@ -323,6 +327,13 @@ Best`;
       return;
     }
 
+    // Check calendar add limit
+    const allowed = await incrementCalendarAdds();
+    if (!allowed) {
+      setShowUpgrade(true);
+      return;
+    }
+
     setCreatingEvent(true);
     try {
       // Parse time slot - handles both ISO and legacy formats
@@ -418,6 +429,12 @@ Best`;
   };
 
   const handleAddTicketToCalendar = async () => {
+    // Check calendar add limit
+    const allowed = await incrementCalendarAdds();
+    if (!allowed) {
+      setShowUpgrade(true);
+      return;
+    }
     setCreatingEvent(true);
     try {
       const eventTitle = `${message.subject}`;
@@ -886,6 +903,12 @@ Best`;
           </div>
         </div>
       )}
+      <UpgradeDialog
+        open={showUpgrade}
+        onOpenChange={setShowUpgrade}
+        title="Daily Calendar Limit Reached"
+        description="Free plan users can add up to 5 calendar events per day. Upgrade for unlimited."
+      />
     </div>
   );
 }

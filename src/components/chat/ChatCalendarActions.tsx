@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Calendar, Loader2, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useUsageLimits } from "@/hooks/useUsageLimits";
+import { UpgradeDialog } from "@/components/UpgradeDialog";
 
 export interface CalendarEvent {
   title: string;
@@ -123,13 +125,22 @@ interface ChatCalendarActionsProps {
 
 export function ChatCalendarActions({ events }: ChatCalendarActionsProps) {
   const { toast } = useToast();
+  const { incrementCalendarAdds, canAddToCalendar } = useUsageLimits();
   const [addingIndex, setAddingIndex] = useState<number | null>(null);
   const [addedIndices, setAddedIndices] = useState<Set<number>>(new Set());
   const [expanded, setExpanded] = useState(true);
+  const [showUpgrade, setShowUpgrade] = useState(false);
 
   if (events.length === 0) return null;
 
   const handleAddToCalendar = async (event: CalendarEvent, index: number) => {
+    // Check limit
+    const allowed = await incrementCalendarAdds();
+    if (!allowed) {
+      setShowUpgrade(true);
+      return;
+    }
+
     const times = parseEventToISO(event);
     if (!times) {
       toast({ title: "Invalid date", description: "Couldn't parse the event date.", variant: "destructive" });
@@ -218,6 +229,12 @@ export function ChatCalendarActions({ events }: ChatCalendarActionsProps) {
           })}
         </div>
       )}
+      <UpgradeDialog
+        open={showUpgrade}
+        onOpenChange={setShowUpgrade}
+        title="Daily Calendar Limit Reached"
+        description="Free plan users can add up to 5 calendar events per day. Upgrade for unlimited."
+      />
     </div>
   );
 }
