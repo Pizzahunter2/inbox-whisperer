@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -246,6 +246,7 @@ export default function Dashboard() {
             onSelect={setSelectedMessage}
             onProcess={handleProcessEmail}
             onRefresh={fetchMessages}
+            resizable
           />
         )}
         

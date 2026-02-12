@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useCallback } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Message } from "@/pages/Dashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +42,7 @@ interface EmailQueueProps {
   onSelect: (message: Message) => void;
   onProcess: (messageId: string, autoSelect?: boolean) => void;
   onRefresh?: () => void;
+  resizable?: boolean;
 }
 
 export function EmailQueue({
@@ -51,7 +53,9 @@ export function EmailQueue({
   onSelect,
   onProcess,
   onRefresh,
+  resizable = false,
 }: EmailQueueProps) {
+  const isMobile = useIsMobile();
   const { toast } = useToast();
   const { isPro } = useSubscription();
   const { canAnalyze, analysesRemaining, incrementAnalyses } = useUsageLimits();
@@ -61,6 +65,12 @@ export function EmailQueue({
   const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [displayLimit, setDisplayLimit] = useState<number>(25);
+  const [queueWidth, setQueueWidth] = useState(() => {
+    const saved = localStorage.getItem("queue_width");
+    return saved ? Number(saved) : 480;
+  });
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const stopBulkRef = useRef(false);
 
   const messagesWithTags = useMemo(
@@ -168,9 +178,32 @@ export function EmailQueue({
     }
   };
 
+  const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    const startX = e.clientX;
+    const startWidth = queueWidth;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const newWidth = Math.min(800, Math.max(300, startWidth + (moveEvent.clientX - startX)));
+      setQueueWidth(newWidth);
+    };
+
+    const onMouseUp = () => {
+      setIsDragging(false);
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      // Save to localStorage
+      setQueueWidth((w) => { localStorage.setItem("queue_width", String(w)); return w; });
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, [queueWidth]);
+
   if (loading) {
     return (
-      <div className="w-full md:w-[480px] border-r border-border p-6 flex items-center justify-center">
+      <div className="w-full border-r border-border p-6 flex items-center justify-center" style={!isMobile ? { width: queueWidth } : undefined}>
         <Loader2 className="w-6 h-6 animate-spin text-accent" />
       </div>
     );
@@ -179,7 +212,16 @@ export function EmailQueue({
   const hasActiveFilters = activeTagFilters.length > 0 || searchQuery.trim().length > 0;
 
   return (
-    <div className="w-full md:w-[480px] border-r border-border flex flex-col">
+    <div ref={containerRef} className="relative w-full border-r border-border flex flex-col" style={!isMobile ? { width: queueWidth } : undefined}>
+      {/* Resize handle */}
+      {resizable && !isMobile && (
+        <div
+          onMouseDown={handleResizeMouseDown}
+          className={`absolute top-0 right-0 w-1.5 h-full cursor-col-resize z-10 group transition-colors ${isDragging ? "bg-accent" : "hover:bg-accent/50"}`}
+        >
+          <div className="absolute top-1/2 -translate-y-1/2 right-0 w-1.5 h-12 rounded-full bg-accent/40 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+      )}
       {/* Header */}
       <div className="p-4 border-b border-border space-y-3">
         <div className="flex items-center justify-between">
