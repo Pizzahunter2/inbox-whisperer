@@ -28,6 +28,26 @@ serve(async (req) => {
     const user = userData.user;
     if (!user?.email) throw new Error("User not authenticated");
 
+    // Check for active redeemed codes first
+    const { data: redemptions } = await supabaseClient
+      .from("redeemed_codes")
+      .select("expires_at")
+      .eq("user_id", user.id)
+      .gt("expires_at", new Date().toISOString())
+      .limit(1);
+
+    if (redemptions && redemptions.length > 0) {
+      return new Response(JSON.stringify({
+        subscribed: true,
+        product_id: "redeemed_pro",
+        subscription_end: redemptions[0].expires_at,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    // Fall back to Stripe check
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2025-08-27.basil",
     });

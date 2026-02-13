@@ -99,9 +99,10 @@ export default function Pricing() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      if (data?.url) {
-        toast({ title: "Code accepted!", description: data.description || "Redirecting to checkout..." });
-        window.open(data.url, "_blank");
+      if (data?.success) {
+        toast({ title: "Code redeemed!", description: data.description || "Pro features unlocked!" });
+        checkSubscription();
+        setRedeemCode("");
       }
     } catch (err: any) {
       toast({ title: "Invalid code", description: err.message || "That code is not valid.", variant: "destructive" });

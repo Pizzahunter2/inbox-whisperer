@@ -75,7 +75,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase.functions.invoke("check-subscription");
       if (error) throw error;
 
-      const isPro = PRO_PRODUCT_IDS.includes(data?.product_id);
+      const isPro = PRO_PRODUCT_IDS.includes(data?.product_id) || data?.product_id === "redeemed_pro";
       const planName = isPro ? "Pro" : "Free";
 
       setState(prev => ({
