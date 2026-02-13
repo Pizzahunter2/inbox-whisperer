@@ -215,9 +215,8 @@ serve(async (req) => {
       );
     }
 
-    // Fetch recent messages from Gmail - PRIMARY inbox, last 7 days
-    // Using 'newer_than:7d' to get recent emails, not just unread
-    const gmailQuery = encodeURIComponent('category:primary -category:promotions -category:social -category:updates newer_than:7d');
+    // Fetch recent messages from Gmail - all inbox emails from last 7 days
+    const gmailQuery = encodeURIComponent('in:inbox newer_than:7d');
     const messagesResponse = await fetch(
       `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${gmailQuery}&maxResults=50`,
       {
