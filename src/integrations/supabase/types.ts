@@ -350,6 +350,33 @@ export type Database = {
           },
         ]
       }
+      redeemed_codes: {
+        Row: {
+          code: string
+          description: string | null
+          expires_at: string
+          granted_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          code: string
+          description?: string | null
+          expires_at: string
+          granted_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          code?: string
+          description?: string | null
+          expires_at?: string
+          granted_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
