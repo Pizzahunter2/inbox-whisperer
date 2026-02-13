@@ -91,13 +91,25 @@ export function ConnectedAccounts() {
     fetchAccounts();
 
     // Listen for OAuth success message from popup or redirect
-    const handleMessage = (event: MessageEvent) => {
+    const handleMessage = async (event: MessageEvent) => {
       if (event.data?.type === 'GOOGLE_OAUTH_SUCCESS') {
         toast({
           title: "Connected!",
-          description: "Your Google accounts have been linked successfully.",
+          description: "Your Google accounts have been linked. Syncing your inbox...",
         });
         fetchAccounts();
+        // Auto-trigger initial sync after connection
+        try {
+          const response = await supabase.functions.invoke("sync-gmail");
+          if (!response.error && response.data) {
+            toast({
+              title: "Inbox synced",
+              description: `Imported ${response.data.imported || 0} emails from your inbox.`,
+            });
+          }
+        } catch (e) {
+          console.error("Auto-sync after connect failed:", e);
+        }
       }
     };
 

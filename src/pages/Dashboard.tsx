@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
 import { useTutorial } from "@/hooks/useTutorial";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useGoogleConnection } from "@/hooks/useGoogleConnection";
 import { invokeFunctionWithRetry } from "@/lib/invokeFunctionWithRetry";
 
 export interface Message {
@@ -49,6 +50,7 @@ export default function Dashboard() {
   const { toast } = useToast();
   const { startTutorial, isActive: tutorialActive } = useTutorial();
   const isMobile = useIsMobile();
+  const { isGmailConnected, loading: connectionLoading } = useGoogleConnection();
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
@@ -89,6 +91,23 @@ export default function Dashboard() {
   useEffect(() => {
     fetchMessages();
   }, []);
+
+  // Auto-sync Gmail when connected but no messages exist yet
+  const autoSyncTriggered = useRef(false);
+  useEffect(() => {
+    if (!connectionLoading && isGmailConnected && !loading && messages.length === 0 && !autoSyncTriggered.current) {
+      autoSyncTriggered.current = true;
+      console.log("Auto-syncing Gmail: connected but no messages found");
+      invokeFunctionWithRetry("sync-gmail")
+        .then(({ data, error }) => {
+          if (!error && data?.imported > 0) {
+            toast({ title: "Inbox synced", description: `Imported ${data.imported} emails from Gmail.` });
+            fetchMessages();
+          }
+        })
+        .catch((e) => console.error("Auto-sync failed:", e));
+    }
+  }, [connectionLoading, isGmailConnected, loading, messages.length]);
 
   // Auto-trigger tutorial only for brand-new users (first ever login)
   useEffect(() => {
