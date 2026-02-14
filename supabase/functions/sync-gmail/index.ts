@@ -164,26 +164,33 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
+    const syncUserId = req.headers.get('x-sync-user-id');
+    
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // User client for auth
-    const userClient = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
+    let userId: string;
 
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-    if (userError || !user) {
+    // Support background cron: if x-sync-user-id header is present and caller is service role
+    if (syncUserId && authHeader?.includes(serviceRoleKey)) {
+      userId = syncUserId;
+    } else if (authHeader) {
+      // Normal user-initiated sync
+      const userClient = createClient(supabaseUrl, supabaseKey, {
+        global: { headers: { Authorization: authHeader } }
+      });
+      const { data: { user }, error: userError } = await userClient.auth.getUser();
+      if (userError || !user) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      userId = user.id;
+    } else {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: 'Missing authorization header' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -195,7 +202,7 @@ serve(async (req) => {
     const { data: account, error: accountError } = await supabase
       .from('connected_accounts')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('provider', 'gmail')
       .single();
 
@@ -207,7 +214,7 @@ serve(async (req) => {
     }
 
     // Refresh token if needed
-    const accessToken = await refreshTokenIfNeeded(supabase, account, user.id);
+    const accessToken = await refreshTokenIfNeeded(supabase, account, userId);
     if (!accessToken) {
       return new Response(
         JSON.stringify({ error: 'Failed to refresh token' }),
@@ -276,7 +283,7 @@ serve(async (req) => {
         .from('messages')
         .upsert(
           {
-            user_id: user.id,
+            user_id: userId,
             provider_message_id: msg.id,
             subject,
             from_email: fromEmail,
