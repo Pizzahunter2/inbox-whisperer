@@ -43,6 +43,7 @@ interface EmailQueueProps {
   onProcess: (messageId: string, autoSelect?: boolean) => void;
   onRefresh?: () => void;
   resizable?: boolean;
+  isSyncing?: boolean;
 }
 
 export function EmailQueue({
@@ -54,6 +55,7 @@ export function EmailQueue({
   onProcess,
   onRefresh,
   resizable = false,
+  isSyncing = false,
 }: EmailQueueProps) {
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -225,7 +227,15 @@ export function EmailQueue({
       {/* Header */}
       <div className="p-4 border-b border-border space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">Action Queue</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-foreground">Action Queue</h2>
+            {isSyncing && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground animate-pulse">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Syncing…
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="sm" disabled={bulkAnalyzing} onClick={handleBulkAnalyze}>
               {bulkAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}

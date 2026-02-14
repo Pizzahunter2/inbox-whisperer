@@ -60,6 +60,7 @@ export default function Dashboard() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [autoSelectId, setAutoSelectId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Handle realtime inserts - prepend new messages
   const handleRealtimeInsert = useCallback((newMessage: Message) => {
@@ -108,6 +109,53 @@ export default function Dashboard() {
         .catch((e) => console.error("Auto-sync failed:", e));
     }
   }, [connectionLoading, isGmailConnected, loading, messages.length]);
+
+  // Background polling: sync Gmail every 5 minutes
+  useEffect(() => {
+    if (!isGmailConnected || connectionLoading) return;
+
+    const syncInBackground = async () => {
+      setIsSyncing(true);
+      try {
+        const { data, error } = await invokeFunctionWithRetry("sync-gmail");
+        if (!error && data?.imported > 0) {
+          fetchMessages();
+        }
+      } catch (e) {
+        console.error("Background sync failed:", e);
+      } finally {
+        setIsSyncing(false);
+      }
+    };
+
+    const intervalId = setInterval(syncInBackground, 5 * 60 * 1000); // 5 minutes
+    return () => clearInterval(intervalId);
+  }, [isGmailConnected, connectionLoading]);
+
+  // Focus-based sync: sync when user returns to tab
+  useEffect(() => {
+    if (!isGmailConnected || connectionLoading) return;
+
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === "visible") {
+        setIsSyncing(true);
+        try {
+          const { data, error } = await invokeFunctionWithRetry("sync-gmail");
+          if (!error && data?.imported > 0) {
+            toast({ title: "New emails", description: `Imported ${data.imported} new email${data.imported !== 1 ? "s" : ""}.` });
+            fetchMessages();
+          }
+        } catch (e) {
+          console.error("Focus sync failed:", e);
+        } finally {
+          setIsSyncing(false);
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [isGmailConnected, connectionLoading, toast]);
 
   // Auto-trigger tutorial only for brand-new users (first ever login)
   useEffect(() => {
@@ -266,6 +314,7 @@ export default function Dashboard() {
             onProcess={handleProcessEmail}
             onRefresh={fetchMessages}
             resizable
+            isSyncing={isSyncing}
           />
         )}
         
