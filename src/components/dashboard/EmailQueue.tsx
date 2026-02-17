@@ -402,10 +402,10 @@ export function EmailQueue({
               <button
                 key={message.id}
                 onClick={() => onSelect(message)}
-                className={`w-full text-left p-4 border-b border-border transition-colors ${
+                className={`w-full text-left p-4 border-b border-border transition-all duration-200 ${
                   isSelected
                     ? "bg-accent/5 border-l-2 border-l-accent"
-                    : "hover:bg-muted/50"
+                    : "hover:bg-muted/50 hover:translate-x-0.5"
                 }`}
               >
                 <div className="flex items-start gap-3">
