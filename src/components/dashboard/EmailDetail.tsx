@@ -605,7 +605,7 @@ Best`;
   }, [message.id]);
 
   return (
-    <div className="flex-1 flex flex-col bg-background h-full max-h-full overflow-hidden animate-fade-in">
+    <div className="flex-1 flex flex-col bg-background h-full max-h-full overflow-hidden animate-[slide-in-right_0.25s_ease-out]">
       {/* Header */}
       <div className="flex items-center justify-between p-4 md:p-6 border-b border-border transition-all duration-200">
         <div className="flex items-center gap-3 md:gap-4">
