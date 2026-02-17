@@ -605,9 +605,9 @@ Best`;
   }, [message.id]);
 
   return (
-    <div className="flex-1 flex flex-col bg-background h-full max-h-full overflow-hidden">
+    <div className="flex-1 flex flex-col bg-background h-full max-h-full overflow-hidden animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 md:p-6 border-b border-border">
+      <div className="flex items-center justify-between p-4 md:p-6 border-b border-border transition-all duration-200">
         <div className="flex items-center gap-3 md:gap-4">
           {isMobile && (
             <Button variant="ghost" size="icon" onClick={onClose} className="flex-shrink-0">
@@ -675,17 +675,17 @@ Best`;
         {hasProposal ? (
           <div className="space-y-6">
             {/* Summary card */}
-            <div className="bg-accent/5 border border-accent/20 rounded-xl p-4">
+            <div className="bg-accent/5 border border-accent/20 rounded-xl p-4 animate-slide-up" style={{ animationDelay: '0.05s', animationFillMode: 'backwards' }}>
               <div className="flex items-center gap-2 text-accent mb-2">
                 <Sparkles className="w-4 h-4" />
                 <span className="text-sm font-medium">AI Summary</span>
               </div>
-              <p className="text-foreground">{message.proposal.summary}</p>
+              <p className="text-foreground leading-relaxed">{message.proposal.summary}</p>
             </div>
 
-            {/* Extracted entities */}
-            {Object.keys(entities).length > 0 && (
-              <div className="bg-muted/50 rounded-xl p-4">
+            {/* Extracted entities - only show when a date is present */}
+            {entities.date && !/n\/?a|none|not\s*specified|tbd/i.test(String(entities.date)) && (
+              <div className="bg-muted/50 rounded-xl p-4 animate-fade-in">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-medium text-foreground">Key Details</h4>
                   {(entities.date || entities.time) && !calendarEventLink && (
@@ -769,7 +769,7 @@ Best`;
             )}
 
             {/* Editable reply area - always show when proposal exists */}
-            <div className="bg-card border border-border rounded-xl p-4">
+            <div className="bg-card border border-border rounded-xl p-4 animate-slide-up" style={{ animationDelay: '0.15s', animationFillMode: 'backwards' }}>
               <div className="flex items-center justify-between mb-3">
                 <h4 className="font-medium text-foreground flex items-center gap-2">
                   <Edit3 className="w-4 h-4 text-accent" />

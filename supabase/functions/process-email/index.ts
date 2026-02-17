@@ -346,15 +346,22 @@ serve(async (req) => {
       ? `\n\nThis email contains ${imageAttachments.length} attached image(s). Analyze them carefully and incorporate any relevant information (text in images, charts, receipts, tickets, screenshots, etc.) into your summary and response.`
       : "";
 
-    const systemPrompt = `You are an AI email assistant. Analyze emails and provide structured responses.
+    const systemPrompt = `You are an AI email assistant that produces thorough, actionable email summaries so the user rarely needs to read the original email.
 
 Your task is to:
-1. Summarize the email in 1-2 sentences
+1. Write a DETAILED summary (3-5 sentences) that captures ALL important information: who is writing, what they want, any deadlines, amounts, dates, action items, key decisions, and context. The summary should be so comprehensive that the user can confidently act on the email without reading the original.
 2. Categorize it into one of: meeting_request, action_needed, fyi, newsletter, other
 3. Determine confidence level: high, medium, or low
 4. Extract key entities like dates, times, deadlines, locations
 5. Generate a professional reply in a ${userTone} tone
 6. Detect if this is a ticket confirmation email (flight, train, bus, concert, event, hotel, etc.) and extract event details${imageContext}
+
+IMPORTANT SUMMARY GUIDELINES:
+- Include specific names, numbers, dollar amounts, dates, and deadlines mentioned in the email
+- Highlight what action the sender expects from the user
+- If the email contains multiple topics or requests, list each one
+- For newsletters, summarize the key takeaways and any calls to action
+- Never be vague — extract concrete details
 
 User's signature to include in replies:
 ${userSignature}`;
@@ -369,7 +376,7 @@ ${imageAttachments.length > 0 ? `\n[This email has ${imageAttachments.length} im
 
 Respond ONLY with valid JSON in this exact format:
 {
-  "summary": "1-2 sentence summary",
+  "summary": "Detailed 3-5 sentence summary covering who, what, why, key numbers/dates, and what action is expected from the recipient",
   "category": "meeting_request|action_needed|fyi|newsletter|other",
   "confidence": "high|medium|low",
   "extracted_entities": {
