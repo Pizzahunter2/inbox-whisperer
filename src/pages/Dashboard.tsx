@@ -62,10 +62,19 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
+  // Ref to track selected message ID for updating after fetch
+  const selectedMessageIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    selectedMessageIdRef.current = selectedMessage?.id || null;
+  }, [selectedMessage]);
+
+  // Debounce ref for visibility sync
+  const lastSyncTimeRef = useRef(0);
+  const syncingRef = useRef(false);
+
   // Handle realtime inserts - prepend new messages
   const handleRealtimeInsert = useCallback((newMessage: Message) => {
     setMessages((prev) => {
-      // Avoid duplicates
       if (prev.some((m) => m.id === newMessage.id)) return prev;
       return [newMessage, ...prev];
     });
@@ -80,6 +89,10 @@ export default function Dashboard() {
     setMessages((prev) =>
       prev.map((m) => (m.id === updatedMessage.id ? { ...m, ...updatedMessage } : m))
     );
+    // Also update selectedMessage if it matches
+    if (selectedMessageIdRef.current === updatedMessage.id) {
+      setSelectedMessage((prev) => prev ? { ...prev, ...updatedMessage } : null);
+    }
   }, []);
 
   // Subscribe to realtime messages
@@ -98,7 +111,6 @@ export default function Dashboard() {
   useEffect(() => {
     if (!connectionLoading && isGmailConnected && !loading && messages.length === 0 && !autoSyncTriggered.current) {
       autoSyncTriggered.current = true;
-      console.log("Auto-syncing Gmail: connected but no messages found");
       invokeFunctionWithRetry("sync-gmail")
         .then(({ data, error }) => {
           if (!error && data?.imported > 0) {
@@ -115,6 +127,8 @@ export default function Dashboard() {
     if (!isGmailConnected || connectionLoading) return;
 
     const syncInBackground = async () => {
+      if (syncingRef.current) return; // Prevent overlapping syncs
+      syncingRef.current = true;
       setIsSyncing(true);
       try {
         const { data, error } = await invokeFunctionWithRetry("sync-gmail");
@@ -124,32 +138,41 @@ export default function Dashboard() {
       } catch (e) {
         console.error("Background sync failed:", e);
       } finally {
+        syncingRef.current = false;
         setIsSyncing(false);
+        lastSyncTimeRef.current = Date.now();
       }
     };
 
-    const intervalId = setInterval(syncInBackground, 5 * 60 * 1000); // 5 minutes
+    const intervalId = setInterval(syncInBackground, 5 * 60 * 1000);
     return () => clearInterval(intervalId);
   }, [isGmailConnected, connectionLoading]);
 
-  // Focus-based sync: sync when user returns to tab
+  // Focus-based sync with debounce (min 60s between syncs)
   useEffect(() => {
     if (!isGmailConnected || connectionLoading) return;
 
+    const SYNC_COOLDOWN = 60_000; // 60 seconds minimum between syncs
+
     const handleVisibilityChange = async () => {
-      if (document.visibilityState === "visible") {
-        setIsSyncing(true);
-        try {
-          const { data, error } = await invokeFunctionWithRetry("sync-gmail");
-          if (!error && data?.imported > 0) {
-            toast({ title: "New emails", description: `Imported ${data.imported} new email${data.imported !== 1 ? "s" : ""}.` });
-            fetchMessages();
-          }
-        } catch (e) {
-          console.error("Focus sync failed:", e);
-        } finally {
-          setIsSyncing(false);
+      if (document.visibilityState !== "visible") return;
+      if (syncingRef.current) return;
+      if (Date.now() - lastSyncTimeRef.current < SYNC_COOLDOWN) return;
+
+      syncingRef.current = true;
+      setIsSyncing(true);
+      try {
+        const { data, error } = await invokeFunctionWithRetry("sync-gmail");
+        if (!error && data?.imported > 0) {
+          toast({ title: "New emails", description: `Imported ${data.imported} new email${data.imported !== 1 ? "s" : ""}.` });
+          fetchMessages();
         }
+      } catch (e) {
+        console.error("Focus sync failed:", e);
+      } finally {
+        syncingRef.current = false;
+        setIsSyncing(false);
+        lastSyncTimeRef.current = Date.now();
       }
     };
 
@@ -162,12 +185,11 @@ export default function Dashboard() {
     if (user && !tutorialActive) {
       const seen = localStorage.getItem(`tutorial_seen_${user.id}`);
       const accountAge = Date.now() - new Date(user.created_at).getTime();
-      const isNewUser = accountAge < 5 * 60 * 1000; // less than 5 minutes old
+      const isNewUser = accountAge < 5 * 60 * 1000;
       if (!seen && isNewUser) {
         const timer = setTimeout(() => startTutorial(), 800);
         return () => clearTimeout(timer);
       } else if (!seen) {
-        // Mark as seen for existing users who never completed the tutorial
         localStorage.setItem(`tutorial_seen_${user.id}`, "true");
       }
     }
@@ -190,6 +212,14 @@ export default function Dashboard() {
       }));
 
       setMessages(formattedMessages);
+
+      // Keep selectedMessage in sync with fresh data
+      if (selectedMessageIdRef.current) {
+        const updated = formattedMessages.find((m) => m.id === selectedMessageIdRef.current);
+        if (updated) {
+          setSelectedMessage(updated);
+        }
+      }
     } catch (error: any) {
       console.error("Error fetching messages:", error);
       toast({ title: "Error", description: "Failed to load messages", variant: "destructive" });
@@ -207,22 +237,8 @@ export default function Dashboard() {
       });
       if (error) throw error;
 
-      const { data: msgData } = await supabase
-        .from("messages")
-        .select(`*, classifications (*), proposals (*), outcomes (*)`)
-        .eq("id", messageId)
-        .single();
-
+      // Refetch all messages to get updated classifications/proposals
       await fetchMessages();
-
-      if (autoSelect && msgData) {
-        setSelectedMessage({
-          ...msgData,
-          classification: msgData.classifications?.[0] || msgData.classifications,
-          proposal: msgData.proposals?.[0] || msgData.proposals,
-          outcome: msgData.outcomes?.[0] || msgData.outcomes,
-        } as Message);
-      }
 
       toast({ title: "Email processed", description: "AI has analyzed the email and generated a response." });
     } catch (error: any) {
@@ -303,7 +319,6 @@ export default function Dashboard() {
       <MobileHeader title="Action Queue" onOpenSidebar={() => setSidebarOpen(true)} />
       
       <main className="flex-1 flex overflow-hidden">
-        {/* On mobile: show queue OR detail, not both */}
         {(!isMobile || !selectedMessage) && (
           <EmailQueue
             messages={pendingMessages}
