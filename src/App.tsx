@@ -8,7 +8,6 @@ import { SubscriptionProvider } from "@/hooks/useSubscription";
 import { TutorialProvider } from "@/hooks/useTutorial";
 import { TutorialOverlay } from "@/components/tutorial/TutorialOverlay";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { PageTransition } from "@/components/PageTransition";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -33,8 +32,7 @@ const App = () => (
           <BrowserRouter>
             <TutorialProvider>
               <TutorialOverlay />
-              <PageTransition>
-                <Routes>
+              <Routes>
                   <Route path="/" element={<Landing />} />
                   <Route path="/login" element={<Auth mode="login" />} />
                   <Route path="/signup" element={<Auth mode="signup" />} />
@@ -68,8 +66,7 @@ const App = () => (
                   <Route path="/privacy" element={<PrivacyPolicy />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
-                </Routes>
-              </PageTransition>
+              </Routes>
             </TutorialProvider>
           </BrowserRouter>
         </SubscriptionProvider>
