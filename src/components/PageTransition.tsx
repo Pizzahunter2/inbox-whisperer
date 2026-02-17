@@ -5,37 +5,31 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const [displayChildren, setDisplayChildren] = useState(children);
   const [phase, setPhase] = useState<"visible" | "fade-out" | "fade-in">("visible");
-  const prevKey = useRef(location.key);
+  const prevPathname = useRef(location.pathname);
 
   useEffect(() => {
-    if (location.key !== prevKey.current) {
-      prevKey.current = location.key;
-      // Fade out current content
+    if (location.pathname !== prevPathname.current) {
+      prevPathname.current = location.pathname;
       setPhase("fade-out");
       const timeout = setTimeout(() => {
-        // Swap content and fade in
         setDisplayChildren(children);
         setPhase("fade-in");
-        // Remove animation class after it completes
-        const clearTimeout2 = setTimeout(() => setPhase("visible"), 200);
-        return () => clearTimeout(clearTimeout2);
-      }, 150);
+        const timeout2 = setTimeout(() => setPhase("visible"), 180);
+        return () => clearTimeout(timeout2);
+      }, 120);
       return () => clearTimeout(timeout);
     } else {
       setDisplayChildren(children);
     }
-  }, [children, location.key]);
-
-  const animationClass =
-    phase === "fade-out"
-      ? "opacity-0 -translate-x-3"
-      : phase === "fade-in"
-        ? "opacity-0 translate-x-3 animate-[page-enter_0.2s_ease-out_forwards]"
-        : "";
+  }, [children, location.pathname]);
 
   return (
     <div
-      className={`w-full h-full transition-[opacity,transform] duration-150 ease-out ${animationClass}`}
+      className="w-full h-full"
+      style={{
+        opacity: phase === "fade-out" ? 0 : 1,
+        transition: "opacity 120ms ease-out",
+      }}
     >
       {displayChildren}
     </div>
