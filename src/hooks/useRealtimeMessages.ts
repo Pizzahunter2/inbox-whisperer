@@ -11,11 +11,39 @@ interface UseRealtimeMessagesOptions {
 
 export function useRealtimeMessages({ userId, onInsert, onUpdate }: UseRealtimeMessagesOptions) {
   const channelRef = useRef<RealtimeChannel | null>(null);
+  // Use refs for callbacks so the channel doesn't re-subscribe when callbacks change
+  const onInsertRef = useRef(onInsert);
+  const onUpdateRef = useRef(onUpdate);
+
+  // Keep refs fresh
+  useEffect(() => { onInsertRef.current = onInsert; }, [onInsert]);
+  useEffect(() => { onUpdateRef.current = onUpdate; }, [onUpdate]);
 
   useEffect(() => {
     if (!userId) return;
 
-    // Subscribe to messages table for the current user
+    const fetchAndNotify = async (messageId: string, handler: 'insert' | 'update') => {
+      const { data } = await supabase
+        .from('messages')
+        .select(`*, classifications (*), proposals (*), outcomes (*)`)
+        .eq('id', messageId)
+        .single();
+
+      if (data) {
+        const formatted: Message = {
+          ...data,
+          classification: data.classifications?.[0] || data.classifications,
+          proposal: data.proposals?.[0] || data.proposals,
+          outcome: data.outcomes?.[0] || data.outcomes,
+        };
+        if (handler === 'insert') {
+          onInsertRef.current(formatted);
+        } else {
+          onUpdateRef.current(formatted);
+        }
+      }
+    };
+
     const channel = supabase
       .channel(`messages:${userId}`)
       .on(
@@ -26,31 +54,8 @@ export function useRealtimeMessages({ userId, onInsert, onUpdate }: UseRealtimeM
           table: 'messages',
           filter: `user_id=eq.${userId}`,
         },
-        async (payload) => {
-          console.log('Realtime INSERT:', payload);
-          const newMessage = payload.new as any;
-          
-          // Fetch related data for the new message
-          const { data } = await supabase
-            .from('messages')
-            .select(`
-              *,
-              classifications (*),
-              proposals (*),
-              outcomes (*)
-            `)
-            .eq('id', newMessage.id)
-            .single();
-
-          if (data) {
-            const formattedMessage: Message = {
-              ...data,
-              classification: data.classifications?.[0] || data.classifications,
-              proposal: data.proposals?.[0] || data.proposals,
-              outcome: data.outcomes?.[0] || data.outcomes,
-            };
-            onInsert(formattedMessage);
-          }
+        (payload) => {
+          fetchAndNotify((payload.new as any).id, 'insert');
         }
       )
       .on(
@@ -61,36 +66,11 @@ export function useRealtimeMessages({ userId, onInsert, onUpdate }: UseRealtimeM
           table: 'messages',
           filter: `user_id=eq.${userId}`,
         },
-        async (payload) => {
-          console.log('Realtime UPDATE:', payload);
-          const updatedMessage = payload.new as any;
-          
-          // Fetch related data for the updated message
-          const { data } = await supabase
-            .from('messages')
-            .select(`
-              *,
-              classifications (*),
-              proposals (*),
-              outcomes (*)
-            `)
-            .eq('id', updatedMessage.id)
-            .single();
-
-          if (data) {
-            const formattedMessage: Message = {
-              ...data,
-              classification: data.classifications?.[0] || data.classifications,
-              proposal: data.proposals?.[0] || data.proposals,
-              outcome: data.outcomes?.[0] || data.outcomes,
-            };
-            onUpdate(formattedMessage);
-          }
+        (payload) => {
+          fetchAndNotify((payload.new as any).id, 'update');
         }
       )
-      .subscribe((status) => {
-        console.log('Realtime subscription status:', status);
-      });
+      .subscribe();
 
     channelRef.current = channel;
 
@@ -99,5 +79,5 @@ export function useRealtimeMessages({ userId, onInsert, onUpdate }: UseRealtimeM
         supabase.removeChannel(channelRef.current);
       }
     };
-  }, [userId, onInsert, onUpdate]);
+  }, [userId]); // Only depends on userId now - stable subscription
 }

@@ -23,7 +23,6 @@ export const PLANS = {
   },
 } as const;
 
-// All pro product IDs for checking
 export const PRO_PRODUCT_IDS = [PLANS.pro.product_id_monthly, PLANS.pro.product_id_yearly] as const;
 
 interface SubscriptionState {
@@ -32,7 +31,6 @@ interface SubscriptionState {
   subscriptionEnd: string | null;
   loading: boolean;
   planName: string;
-  // For testing toggle
   testOverride: boolean | null;
 }
 
@@ -54,20 +52,49 @@ const SubscriptionContext = createContext<SubscriptionContextType>({
   isPro: false,
 });
 
+// Cache subscription result in sessionStorage to prevent flicker
+const CACHE_KEY = "subscription_cache";
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function getCachedSubscription(): { subscribed: boolean; productId: string | null; subscriptionEnd: string | null } | null {
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const cached = JSON.parse(raw);
+    if (Date.now() - cached.ts > CACHE_TTL) {
+      sessionStorage.removeItem(CACHE_KEY);
+      return null;
+    }
+    return cached;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedSubscription(data: { subscribed: boolean; productId: string | null; subscriptionEnd: string | null }) {
+  try {
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ...data, ts: Date.now() }));
+  } catch { /* ignore */ }
+}
+
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const { user, session } = useAuth();
+
+  // Initialize from cache to prevent Pro features flashing as locked
+  const cached = getCachedSubscription();
   const [state, setState] = useState<SubscriptionState>({
-    subscribed: false,
-    productId: null,
-    subscriptionEnd: null,
-    loading: true,
-    planName: "Free",
+    subscribed: cached?.subscribed ?? false,
+    productId: cached?.productId ?? null,
+    subscriptionEnd: cached?.subscriptionEnd ?? null,
+    loading: !cached, // If cached, not loading
+    planName: cached?.subscribed ? "Pro" : "Free",
     testOverride: null,
   });
 
   const checkSubscription = useCallback(async () => {
     if (!session) {
       setState(prev => ({ ...prev, subscribed: false, productId: null, subscriptionEnd: null, loading: false, planName: "Free" }));
+      sessionStorage.removeItem(CACHE_KEY);
       return;
     }
 
@@ -77,17 +104,23 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
       const isPro = PRO_PRODUCT_IDS.includes(data?.product_id) || data?.product_id === "redeemed_pro";
       const planName = isPro ? "Pro" : "Free";
-
-      setState(prev => ({
-        ...prev,
+      const result = {
         subscribed: data?.subscribed ?? false,
         productId: data?.product_id ?? null,
         subscriptionEnd: data?.subscription_end ?? null,
+      };
+
+      setCachedSubscription(result);
+
+      setState(prev => ({
+        ...prev,
+        ...result,
         loading: false,
         planName,
       }));
     } catch (err) {
       console.error("Error checking subscription:", err);
+      // On error, keep previous state (don't reset to free) - just stop loading
       setState(prev => ({ ...prev, loading: false }));
     }
   }, [session]);
@@ -100,14 +133,13 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     checkSubscription();
   }, [checkSubscription]);
 
-  // Auto-refresh every 60 seconds
+  // Auto-refresh every 5 minutes (was 60s which was too aggressive)
   useEffect(() => {
     if (!session) return;
-    const interval = setInterval(checkSubscription, 60000);
+    const interval = setInterval(checkSubscription, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [session, checkSubscription]);
 
-  // Compute isPro considering test override
   const isPro = state.testOverride !== null ? state.testOverride : state.subscribed;
 
   return (

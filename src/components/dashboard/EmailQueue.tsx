@@ -138,16 +138,25 @@ export function EmailQueue({
         break;
       }
       try {
-        onProcess(msg.id, false);
+        // Await the process call to ensure sequential execution
+        const { error } = await invokeFunctionWithRetry("process-email", {
+          body: { messageId: msg.id },
+        });
+        if (error) throw error;
         success++;
-        await new Promise((r) => setTimeout(r, 1500));
       } catch {
         failed++;
+      }
+      // Small delay between requests to avoid rate limiting
+      if (!stopBulkRef.current) {
+        await new Promise((r) => setTimeout(r, 500));
       }
     }
     const wasStopped = stopBulkRef.current;
     setBulkAnalyzing(false);
     stopBulkRef.current = false;
+    // Refresh the message list to show all new analyses
+    if (onRefresh) onRefresh();
     toast({
       title: wasStopped ? "Analysis Stopped" : "Bulk Analysis Complete",
       description: `Analyzed ${success} email${success !== 1 ? "s" : ""}.${failed > 0 ? ` ${failed} failed.` : ""}${wasStopped ? " Remaining emails skipped." : ""}`,
