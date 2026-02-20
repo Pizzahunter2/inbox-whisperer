@@ -38,8 +38,25 @@ export default function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mb-3">5. Third-Party Services</h2>
-            <p className="text-muted-foreground">We integrate with Google Gmail for email access. Your use of these third-party services is subject to their respective privacy policies. We only request the minimum permissions necessary to provide the Service.</p>
+            <h2 className="text-xl font-semibold mb-3">5. Google User Data — Sharing, Transfer & Disclosure</h2>
+            <p className="text-muted-foreground mb-3">
+              Inbox Pilot integrates with Google Gmail and Google Calendar via OAuth 2.0. We request only the following scopes, which are the minimum necessary to operate the Service:
+            </p>
+            <ul className="list-disc pl-6 text-muted-foreground space-y-1 mb-3">
+              <li><strong>gmail.readonly</strong> — to read your emails and generate AI summaries and suggested responses.</li>
+              <li><strong>gmail.send</strong> — to send emails on your behalf when you approve a suggested reply.</li>
+              <li><strong>calendar.events</strong> — to create calendar events when you approve a meeting suggestion.</li>
+            </ul>
+            <p className="text-muted-foreground mb-3">
+              <strong>We do not sell, share, transfer, or disclose Google user data to any third party</strong>, except in the following limited circumstances:
+            </p>
+            <ul className="list-disc pl-6 text-muted-foreground space-y-1 mb-3">
+              <li><strong>AI Processing:</strong> Email content is sent to an AI model (OpenAI / Google) solely to generate summaries and reply suggestions. This data is not used for model training.</li>
+              <li><strong>Legal requirements:</strong> We may disclose data if required by law or to protect the rights and safety of our users.</li>
+            </ul>
+            <p className="text-muted-foreground">
+              Google user data is never used for advertising, profiling, or any purpose beyond providing the core features of Inbox Pilot. Our use of Google user data complies with the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" className="underline">Google API Services User Data Policy</a>, including the Limited Use requirements.
+            </p>
           </section>
 
           <section>
